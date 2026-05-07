@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"d:\\\\Documents\\\\FRC\\\\2026\\\\ScoutingApp\" -Force)",
+      "Bash(ls \"d:\\\\Documents\\\\FRC\\\\2026\")",
+      "Read(//d/Documents/FRC/2026/**)",
+      "Bash(npm --version)",
+      "Bash(npm create *)",
+      "Bash(Copy-Item -Path tmp_scaffold\\\\* -Destination . -Recurse -Force)",
+      "Bash(Remove-Item -Recurse -Force tmp_scaffold)",
+      "Bash(npm install *)",
+      "Bash(npx tailwindcss *)",
+      "Bash(npx convex *)",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"d:\\\\Documents\\\\FRC\\\\2026\\\\ScoutingApp\\\\convex\\\\_generated\")",
+      "WebSearch",
+      "WebFetch(domain:docs.convex.dev)",
+      "Bash(Remove-Item \"d:\\\\Documents\\\\FRC\\\\2026\\\\ScoutingApp\\\\convex\\\\auth.config.ts\")",
+      "Bash(node -e ' *)",
+      "Bash(npx @convex-dev/auth generate-keys)",
+      "Bash(npx @convex-dev/auth --help)",
+      "Bash(npx @convex-dev/auth --web-server-url http://localhost:5173)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Documents\\\\FRC\\\\2026\\\\ScoutingApp\" -Recurse -Directory)",
+      "Bash(Select-Object -First 20)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Documents\\\\FRC\\\\2026\\\\ScoutingApp\\\\src\\\\components\\\\layout\" -File)",
+      "Bash(npx tsc *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Documents\\\\FRC\\\\2026\\\\ScoutingApp\" -Recurse -Force)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Format-Table FullName)",
+      "Bash(grep -E \"^[a-z].*\\\\.ts$\")",
+      "Bash(Remove-Item \"d:\\\\Documents\\\\FRC\\\\2026\\\\ScoutingApp\\\\src\\\\pages\\\\NotesPage.tsx\")",
+      "Bash(ls -la .env*)",
+      "Bash(cat .gitignore)",
+      "Bash(gh auth *)",
+      "PowerShell(gh auth status 2>&1)"
+    ]
+  }
+}
