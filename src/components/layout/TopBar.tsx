@@ -8,6 +8,7 @@ const navItems = [
   { to: "/scout", label: "Scout", roles: ["scout", "admin"] },
   { to: "/pit", label: "Pit", roles: ["scout", "admin"] },
   { to: "/data", label: "Data", roles: ["scout", "analyst", "admin"] },
+  { to: "/match-analysis", label: "Analysis", roles: ["scout", "analyst", "admin"] },
   { to: "/picklist/mine", label: "Pick List", roles: ["scout", "admin"] },
   { to: "/admin/event", label: "Admin", roles: ["admin"] },
 ] as const;

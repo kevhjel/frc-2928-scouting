@@ -21,6 +21,7 @@ const fieldValidator = v.object({
   higherIsBetter: v.optional(v.boolean()),
   required: v.optional(v.boolean()),
   increment: v.optional(v.number()),
+  conditionalOnField: v.optional(v.string()),
 });
 
 export const getActiveConfig = query({

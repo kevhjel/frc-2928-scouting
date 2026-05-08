@@ -1,6 +1,12 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 
+// Fallback for configs stored before conditionalOnField was added to the schema
+const FIELD_CONDITIONS: Record<string, string> = {
+  tele_defense_quality: "tele_defense",
+  tele_defense_handling: "tele_was_defended",
+};
+
 export type FieldStats =
   | { type: "numeric"; avg: number; max: number; min: number; stddev: number; count: number }
   | { type: "boolean"; trueCount: number; falseCount: number; truePercent: number }
@@ -88,7 +94,11 @@ export const getTeamStats = query({
     const fieldStats: Record<string, FieldStats> = {};
     for (const field of config.matchFields) {
       if (!field.aggregatable) continue;
-      const values = entries.map((e) => e.data[field.id] ?? null);
+      const conditionalOn = field.conditionalOnField ?? FIELD_CONDITIONS[field.id];
+      const relevant = conditionalOn
+        ? entries.filter((e) => e.data[conditionalOn] === true)
+        : entries;
+      const values = relevant.map((e) => e.data[field.id] ?? null);
       fieldStats[field.id] = computeFieldStats(values, field.type);
     }
     const pitPhotoUrl = team.pitPhotoStorageId

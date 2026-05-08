@@ -21,6 +21,7 @@ const scoutingFieldValidator = v.object({
   higherIsBetter: v.optional(v.boolean()),
   required: v.optional(v.boolean()),
   increment: v.optional(v.number()),
+  conditionalOnField: v.optional(v.string()),
 });
 
 export default defineSchema({
@@ -35,6 +36,7 @@ export default defineSchema({
       v.literal("admin"),
     ),
     assignedTeamNumbers: v.optional(v.array(v.number())),
+    isBot: v.optional(v.boolean()),
   }).index("by_userId", ["userId"]),
 
   events: defineTable({
@@ -46,6 +48,7 @@ export default defineSchema({
     location: v.string(),
     isActive: v.boolean(),
     tbaLastSynced: v.optional(v.number()),
+    isMock: v.optional(v.boolean()),
   })
     .index("by_eventKey", ["eventKey"])
     .index("by_active", ["isActive"]),

@@ -138,6 +138,71 @@ export const getMyAssignments = query({
   },
 });
 
+export const getMyAssignmentsFull = query({
+  args: { eventKey: v.string() },
+  handler: async (ctx, { eventKey }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const assignments = await ctx.db
+      .query("matchAssignments")
+      .withIndex("by_eventKey_userId", (q) =>
+        q.eq("eventKey", eventKey).eq("userId", userId),
+      )
+      .collect();
+
+    const scoutedEntries = await ctx.db
+      .query("matchScoutingEntries")
+      .withIndex("by_scoutUser", (q) => q.eq("scoutUserId", userId))
+      .filter((q) => q.eq(q.field("eventKey"), eventKey))
+      .collect();
+    const scoutedMatchKeys = new Set(scoutedEntries.map((e) => e.matchKey));
+
+    const withDetails = await Promise.all(
+      assignments.map(async (a) => {
+        const match = await ctx.db
+          .query("matches")
+          .withIndex("by_eventKey_matchKey", (q) =>
+            q.eq("eventKey", eventKey).eq("matchKey", a.matchKey),
+          )
+          .unique();
+
+        const teamNumber = match
+          ? (a.alliance === "red" ? match.redAlliance : match.blueAlliance)[a.position - 1]
+          : undefined;
+
+        const team = teamNumber != null
+          ? await ctx.db
+              .query("teams")
+              .withIndex("by_eventKey_teamNumber", (q) =>
+                q.eq("eventKey", eventKey).eq("teamNumber", teamNumber),
+              )
+              .unique()
+          : null;
+
+        const robotPhotoUrl =
+          team?.robotPhotoUrl ??
+          (team?.pitPhotoStorageId
+            ? await ctx.storage.getUrl(team.pitPhotoStorageId)
+            : null);
+
+        return {
+          ...a,
+          match,
+          isScouted: scoutedMatchKeys.has(a.matchKey),
+          teamNumber: teamNumber ?? null,
+          teamNickname: team?.nickname ?? null,
+          robotPhotoUrl,
+        };
+      }),
+    );
+
+    return withDetails
+      .filter((x) => x.match !== null)
+      .sort((a, b) => (a.match?.predictedTime ?? 0) - (b.match?.predictedTime ?? 0));
+  },
+});
+
 export const removeAssignment = mutation({
   args: { assignmentId: v.id("matchAssignments") },
   handler: async (ctx, { assignmentId }) => {

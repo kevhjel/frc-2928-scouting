@@ -10,6 +10,7 @@ import TeamPage from "./pages/TeamPage";
 import PickListPage from "./pages/PickListPage";
 import AllianceBuilderPage from "./pages/AllianceBuilderPage";
 import AdminPage from "./pages/AdminPage";
+import MatchAnalysisPage from "./pages/MatchAnalysisPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import Spinner from "./components/ui/Spinner";
 
@@ -68,6 +69,7 @@ export default function App() {
             element={<PickListPage view="consensus" />}
           />
           <Route path="alliance-builder" element={<AllianceBuilderPage />} />
+          <Route path="match-analysis" element={<MatchAnalysisPage />} />
           <Route
             path="admin/*"
             element={

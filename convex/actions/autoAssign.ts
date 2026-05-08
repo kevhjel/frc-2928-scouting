@@ -22,6 +22,7 @@ interface ScoutState {
   onBreak: boolean;
   breakMatchesLeft: number;
   teamsSeen: Set<number>;
+  dailyCounts: Map<string, number>; // dateStr → assignments on that day
 }
 
 function matchDateStr(predictedTime: number | undefined): string {
@@ -39,10 +40,10 @@ export const generateAutoAssignments = action({
     const callerId = await getAuthUserId(ctx);
     if (!callerId) throw new Error("Unauthenticated");
 
-    const queryResult = await ctx.runQuery(
+    const queryResult = (await ctx.runQuery(
       internal.autoAssignInternal.getAutoAssignData,
       { eventKey },
-    ) as {
+    )) as {
       matches: Array<{
         matchKey: string;
         status: string;
@@ -78,6 +79,7 @@ export const generateAutoAssignments = action({
         onBreak: false,
         breakMatchesLeft: 0,
         teamsSeen: new Set(),
+        dailyCounts: new Map(),
       });
     }
 
@@ -93,9 +95,25 @@ export const generateAutoAssignments = action({
       { alliance: "blue", position: 3, teamIndex: 2 },
     ];
 
+    let currentDay = "";
+
     for (const match of matches) {
       const matchDate = matchDateStr(match.predictedTime);
+
+      // Priority 1: Reset shift state at the start of each new day so
+      // carry-over break/shift state from the previous day doesn't penalize scouts.
+      if (matchDate && matchDate !== currentDay) {
+        currentDay = matchDate;
+        for (const [, s] of state) {
+          s.shiftProgress = 0;
+          s.onBreak = false;
+          s.breakMatchesLeft = 0;
+        }
+      }
+
       const availableSet = availableOnDate.get(matchDate) ?? new Set();
+      // Hard constraint: a scout may only appear once per match
+      const assignedThisMatch = new Set<Id<"users">>();
 
       for (const slot of slots) {
         const teamNumber =
@@ -103,33 +121,45 @@ export const generateAutoAssignments = action({
             ? match.redAlliance[slot.teamIndex]
             : match.blueAlliance[slot.teamIndex];
 
-        // Candidates: available for this day and not on break
+        // First pass: available on this day, not on break, not already in this match
         let candidates = scouts.filter(
-          (s) => availableSet.has(s.userId) && !state.get(s.userId)!.onBreak,
+          (s) =>
+            availableSet.has(s.userId) &&
+            !state.get(s.userId)!.onBreak &&
+            !assignedThisMatch.has(s.userId),
         );
 
-        // Fall back to on-break scouts if none available
+        // Fallback: use on-break scouts (still excluding those already in this match)
+        // Prefer those with fewest breakMatchesLeft (closest to end of break).
         if (candidates.length === 0) {
           candidates = scouts
-            .filter((s) => availableSet.has(s.userId))
+            .filter((s) => availableSet.has(s.userId) && !assignedThisMatch.has(s.userId))
             .sort(
               (a, b) =>
-                state.get(b.userId)!.breakMatchesLeft -
-                state.get(a.userId)!.breakMatchesLeft,
+                state.get(a.userId)!.breakMatchesLeft -
+                state.get(b.userId)!.breakMatchesLeft,
             );
         }
 
+        // If still no candidates after the per-match dedup, leave this slot blank.
         if (candidates.length === 0) {
           skipped++;
           continue;
         }
 
-        // Score: prefer scouts who haven't seen this team + fewer total assignments
+        // Score candidates (lower = preferred):
+        // - Priority 1: scouts mid-shift get a strong bonus (-500) to keep shifts compact
+        // - Priority 2: heavy penalty for scouts who already scouted this team (+1000)
+        // - Priority 3: equalize daily counts, then total counts
         candidates.sort((a, b) => {
           const sa = state.get(a.userId)!;
           const sb = state.get(b.userId)!;
-          const scoreA = (sa.teamsSeen.has(teamNumber) ? 1000 : 0) + sa.assignmentCount;
-          const scoreB = (sb.teamsSeen.has(teamNumber) ? 1000 : 0) + sb.assignmentCount;
+          const dailyA = sa.dailyCounts.get(matchDate) ?? 0;
+          const dailyB = sb.dailyCounts.get(matchDate) ?? 0;
+          const inShiftA = sa.shiftProgress > 0 ? -500 : 0;
+          const inShiftB = sb.shiftProgress > 0 ? -500 : 0;
+          const scoreA = inShiftA + (sa.teamsSeen.has(teamNumber) ? 1000 : 0) + dailyA * 5 + sa.assignmentCount;
+          const scoreB = inShiftB + (sb.teamsSeen.has(teamNumber) ? 1000 : 0) + dailyB * 5 + sb.assignmentCount;
           return scoreA - scoreB;
         });
 
@@ -144,9 +174,18 @@ export const generateAutoAssignments = action({
           position: slot.position,
         });
 
+        assignedThisMatch.add(chosen.userId);
         s.assignmentCount++;
         s.teamsSeen.add(teamNumber);
         s.shiftProgress++;
+        s.dailyCounts.set(matchDate, (s.dailyCounts.get(matchDate) ?? 0) + 1);
+
+        // If scout was on break and forced back, clear their break state
+        if (s.onBreak) {
+          s.onBreak = false;
+          s.breakMatchesLeft = 0;
+          s.shiftProgress = 1; // They've now started a new shift
+        }
 
         if (s.shiftProgress >= shiftSize) {
           s.onBreak = true;
@@ -155,7 +194,7 @@ export const generateAutoAssignments = action({
         }
       }
 
-      // Decrement break counters after each match
+      // Decrement break counters for all on-break scouts after each match
       for (const [, s] of state) {
         if (s.onBreak) {
           s.breakMatchesLeft--;

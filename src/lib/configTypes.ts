@@ -18,6 +18,7 @@ export interface ScoutingField {
   higherIsBetter?: boolean;
   required?: boolean;
   increment?: number;
+  conditionalOnField?: string;
 }
 
 export interface ScoutingConfig {

@@ -210,9 +210,9 @@ export default function DataPage() {
                     onClick={() => navigate(`/team/${t.teamNumber}`)}
                   >
                     <td className="pl-3 py-2 w-40">
-                      {t.robotPhotoUrl ? (
+                      {(t.robotPhotoUrl ?? t.pitPhotoUrl) ? (
                         <img
-                          src={t.robotPhotoUrl}
+                          src={(t.robotPhotoUrl ?? t.pitPhotoUrl)!}
                           alt={`Team ${t.teamNumber}`}
                           className="w-40 h-40 rounded object-cover bg-slate-800"
                         />

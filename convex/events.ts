@@ -19,7 +19,9 @@ export const getActiveEventKey = internalQuery({
       .query("events")
       .withIndex("by_active", (q) => q.eq("isActive", true))
       .unique();
-    return event?.eventKey ?? null;
+    // Skip TBA sync for mock events
+    if (!event || event.isMock) return null;
+    return event.eventKey;
   },
 });
 

@@ -256,7 +256,7 @@ export default function TeamPage() {
               {notes.map((e) => (
                 <div key={e._id} className="flex gap-2">
                   <span className="text-xs text-slate-500 shrink-0">
-                    {e.matchKey.split("_")[1]?.toUpperCase()}
+                    {e.matchKey.split("_").pop()?.toUpperCase()}
                   </span>
                   <p className="text-xs text-slate-300 italic">{e.notes}</p>
                 </div>
@@ -313,7 +313,7 @@ export default function TeamPage() {
                 >
                   <div className="flex items-center gap-3">
                     <Badge color={entry.alliance === "red" ? "red" : "blue"}>
-                      {entry.matchKey.split("_")[1]?.toUpperCase()}
+                      {entry.matchKey.split("_").pop()?.toUpperCase()}
                     </Badge>
                     <span className="text-xs text-slate-400">
                       {entry.alliance} {entry.alliancePosition}

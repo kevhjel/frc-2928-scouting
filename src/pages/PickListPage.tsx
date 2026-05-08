@@ -540,7 +540,7 @@ function TeamQuickViewModal({
                 {entries.slice(0, 5).map((e) => (
                   <div key={e._id} className="flex items-center gap-2 text-xs">
                     <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${e.alliance === "red" ? "bg-red-900/40 text-red-300" : "bg-blue-900/40 text-blue-300"}`}>
-                      {e.matchKey.split("_")[1]?.toUpperCase()}
+                      {e.matchKey.split("_").pop()?.toUpperCase()}
                     </span>
                     {e.notes && <span className="text-slate-400 italic truncate">{e.notes}</span>}
                   </div>

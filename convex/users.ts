@@ -87,6 +87,51 @@ export const updateUserRole = mutation({
   },
 });
 
+export const createBotAccount = mutation({
+  args: { displayName: v.string() },
+  handler: async (ctx, { displayName }) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new Error("Unauthenticated");
+    const myProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", callerId))
+      .unique();
+    if (myProfile?.role !== "admin") throw new Error("Unauthorized");
+    // Insert a bare users row — no email, no authAccounts entry → can never authenticate
+    const userId = await ctx.db.insert("users", {} as any);
+    await ctx.db.insert("userProfiles", {
+      userId,
+      displayName,
+      role: "scout",
+      isBot: true,
+    });
+  },
+});
+
+export const deleteBotAccount = mutation({
+  args: { profileId: v.id("userProfiles") },
+  handler: async (ctx, { profileId }) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new Error("Unauthenticated");
+    const myProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", callerId))
+      .unique();
+    if (myProfile?.role !== "admin") throw new Error("Unauthorized");
+    const target = await ctx.db.get(profileId);
+    if (!target) throw new Error("Profile not found");
+    if (!target.isBot) throw new Error("Cannot delete non-bot accounts this way");
+    // Delete all match assignments for this bot across all events
+    const assignments = await ctx.db
+      .query("matchAssignments")
+      .filter((q) => q.eq(q.field("userId"), target.userId))
+      .collect();
+    for (const a of assignments) await ctx.db.delete(a._id);
+    await ctx.db.delete(profileId);
+    await ctx.db.delete(target.userId);
+  },
+});
+
 export const setAssignedTeams = mutation({
   args: {
     profileId: v.id("userProfiles"),

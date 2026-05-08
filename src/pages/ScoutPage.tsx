@@ -10,6 +10,14 @@ import Spinner from "../components/ui/Spinner";
 import Card from "../components/ui/Card";
 import { PRESET_TAGS } from "../../convex/teamFlags";
 
+function formatMatchTime(predictedTime?: number | null): string {
+  if (!predictedTime) return "";
+  return new Date(predictedTime * 1000).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 type Alliance = "red" | "blue";
 type Position = 1 | 2 | 3;
 
@@ -68,7 +76,7 @@ export default function ScoutPage() {
   const submitEntry = useMutation(api.matchScouting.submitMatchEntry);
   const addFlag = useMutation(api.teamFlags.addFlag);
   const allAssignments = useQuery(
-    api.matchAssignments.getMyAssignments,
+    api.matchAssignments.getMyAssignmentsFull,
     event ? { eventKey: event.eventKey } : "skip",
   );
   const matches = useQuery(
@@ -87,7 +95,6 @@ export default function ScoutPage() {
   const [submitted, setSubmitted] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState("");
-  const [showAllAssignments, setShowAllAssignments] = useState(false);
 
   // Build per-match coverage count
   const matchCoverageMap = useMemo(() => {
@@ -97,6 +104,16 @@ export default function ScoutPage() {
     }
     return map;
   }, [coverage]);
+
+  // Determine next upcoming assignment (must be before any early returns)
+  const nextAssignment = useMemo(() => {
+    if (!allAssignments) return null;
+    return (
+      allAssignments
+        .filter((a) => !a.isScouted && a.match?.status !== "completed")
+        .sort((a, b) => (a.match?.predictedTime ?? 0) - (b.match?.predictedTime ?? 0))[0] ?? null
+    );
+  }, [allAssignments]);
 
   if (!event) {
     return (
@@ -204,59 +221,15 @@ export default function ScoutPage() {
 
   const ready = matchKey && teamNumber;
 
+  function assignmentMatchLabel(matchKey: string): string {
+    const part = matchKey.split("_").pop() ?? "";
+    if (part.startsWith("qm")) return `QM${part.slice(2)}`;
+    return part.toUpperCase();
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 space-y-3 border-b border-slate-800 bg-slate-950">
-        {/* Assignments */}
-        {allAssignments && allAssignments.length > 0 && !matchKey && (
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-blue-400 font-medium">
-                Your assignments ({allAssignments.length})
-              </p>
-              {allAssignments.length > 1 && (
-                <button
-                  onClick={() => setShowAllAssignments((v) => !v)}
-                  className="text-xs text-slate-500 hover:text-slate-300"
-                >
-                  {showAllAssignments ? "Show less" : "Show all"}
-                </button>
-              )}
-            </div>
-            {(showAllAssignments ? allAssignments : allAssignments.slice(0, 1)).map((a) => (
-              <Card
-                key={`${a.matchKey}:${a.alliance}:${a.position}`}
-                className="bg-blue-900/30 border-blue-800 cursor-pointer"
-                onClick={() => {
-                  setMatchKey(a.matchKey);
-                  setAlliance(a.alliance as Alliance);
-                  setPosition(a.position as Position);
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-slate-200 font-semibold text-sm">
-                      {a.matchKey.split("_")[1]?.toUpperCase()}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {a.alliance.toUpperCase()} · Position {a.position}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      a.alliance === "red"
-                        ? "bg-red-900/40 text-red-300"
-                        : "bg-blue-900/40 text-blue-300"
-                    }`}
-                  >
-                    {a.alliance === "red" ? "RED" : "BLUE"}
-                  </span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
         {/* Match selector — dropdown with coverage-colored border */}
         <div>
           <label className="block text-xs text-slate-400 mb-1">Match</label>
@@ -427,8 +400,101 @@ export default function ScoutPage() {
           }}
         />
       ) : (
-        <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
-          Select a match and team to begin scouting.
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {allAssignments && allAssignments.length > 0 ? (
+            <>
+              <p className="text-xs text-slate-400 font-medium mb-2">
+                Your Assignments ({allAssignments.length})
+              </p>
+              {allAssignments.map((a) => {
+                const isNext =
+                  nextAssignment !== null &&
+                  a.matchKey === nextAssignment.matchKey &&
+                  a.alliance === nextAssignment.alliance &&
+                  a.position === nextAssignment.position;
+                const cardClass = a.isScouted
+                  ? "bg-green-900/25 border-green-800 cursor-pointer"
+                  : isNext
+                    ? "bg-yellow-900/30 border-yellow-700 cursor-pointer"
+                    : "bg-slate-900 border-slate-800 cursor-pointer";
+                return (
+                  <Card
+                    key={`${a.matchKey}:${a.alliance}:${a.position}`}
+                    className={cardClass}
+                    onClick={() => {
+                      if (!a.isScouted) {
+                        const teams = a.alliance === "red"
+                          ? a.match?.redAlliance
+                          : a.match?.blueAlliance;
+                        const team = teams?.[a.position - 1];
+                        setMatchKey(a.matchKey);
+                        setAlliance(a.alliance as Alliance);
+                        setPosition(a.position as Position);
+                        if (team) setTeamNumber(String(team));
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Robot photo */}
+                      {a.robotPhotoUrl ? (
+                        <img
+                          src={a.robotPhotoUrl}
+                          alt={`Team ${a.teamNumber}`}
+                          className="w-14 h-14 rounded-lg object-cover shrink-0 bg-slate-800"
+                        />
+                      ) : (
+                        <div className={`w-14 h-14 rounded-lg shrink-0 flex items-center justify-center text-lg font-bold ${
+                          a.alliance === "red"
+                            ? "bg-red-900/30 text-red-400"
+                            : "bg-blue-900/30 text-blue-400"
+                        }`}>
+                          {a.teamNumber ?? "?"}
+                        </div>
+                      )}
+
+                      {/* Match + team info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-slate-200 font-semibold text-sm">
+                            {assignmentMatchLabel(a.matchKey)}
+                          </p>
+                          {isNext && (
+                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-yellow-700/60 text-yellow-200">
+                              NEXT
+                            </span>
+                          )}
+                          {a.isScouted && (
+                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-green-800/60 text-green-300">
+                              ✓ Done
+                            </span>
+                          )}
+                        </div>
+                        {a.teamNumber && (
+                          <p className="text-sm font-medium text-slate-100 truncate">
+                            {a.teamNumber}
+                            {a.teamNickname ? ` — ${a.teamNickname}` : ""}
+                          </p>
+                        )}
+                        <p className="text-xs text-slate-400">
+                          <span className={a.alliance === "red" ? "text-red-400" : "text-blue-400"}>
+                            {a.alliance.toUpperCase()}
+                          </span>
+                          {" "}· Pos {a.position}
+                          {a.match?.predictedTime
+                            ? ` · ~${formatMatchTime(a.match.predictedTime)}`
+                            : ""}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-slate-500 text-sm pt-16">
+              Select a match and team to begin scouting.
+            </div>
+          )}
         </div>
       )}
     </div>

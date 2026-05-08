@@ -1,5 +1,15 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+export const checkIsAdmin = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }): Promise<boolean> => {
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    return profile?.role === "admin";
+  },
+});
 
 export const getAutoAssignData = internalQuery({
   args: { eventKey: v.string() },
@@ -17,7 +27,6 @@ export const getAutoAssignData = internalQuery({
 
     const allProfiles = await ctx.db.query("userProfiles").collect();
     const scouts = allProfiles
-      .filter((p) => p.role === "scout")
       .map((p) => ({ userId: p.userId, displayName: p.displayName }));
 
     const allAvailability = await ctx.db

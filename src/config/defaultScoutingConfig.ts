@@ -134,6 +134,7 @@ export const config2026: ScoutingConfig = {
       defaultValue: 3,
       aggregatable: true,
       higherIsBetter: true,
+      conditionalOnField: "tele_defense",
     },
     {
       id: "tele_was_defended",
@@ -151,6 +152,7 @@ export const config2026: ScoutingConfig = {
       defaultValue: 3,
       aggregatable: true,
       higherIsBetter: true,
+      conditionalOnField: "tele_was_defended",
     },
     {
       id: "tele_defense_notes",

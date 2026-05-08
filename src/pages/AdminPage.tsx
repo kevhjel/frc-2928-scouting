@@ -25,10 +25,18 @@ function EventTab() {
   const syncTBA = useAction(api.actions.tbaSync.syncEventFromTBA);
   const syncStatbotics = useAction(api.actions.statboticsSync.syncStatbotics);
   const syncPhotos = useAction(api.actions.tbaSync.syncTeamPhotos);
+  const createMockEvent = useAction(api.actions.createMockEvent.createMockEvent);
+  const deleteMockEvent = useAction(api.actions.createMockEvent.deleteMockEvent);
+  const myTeamSetting = useQuery(api.appSettings.getAppSetting, { key: "myTeamNumber" });
+  const setAppSetting = useMutation(api.appSettings.setAppSetting);
 
   const [eventKey, setEventKey] = useState("");
+  const [mockName, setMockName] = useState("");
+  const [creatingMock, setCreatingMock] = useState(false);
+  const [mockMsg, setMockMsg] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
+  const [myTeamInput, setMyTeamInput] = useState("");
 
   async function handleSync() {
     if (!event) return;
@@ -59,6 +67,41 @@ function EventTab() {
     setEventKey("");
   }
 
+  async function handleCreateMock() {
+    if (!mockName.trim()) return;
+    setCreatingMock(true);
+    setMockMsg("");
+    try {
+      const savedTeam = myTeamSetting?.value ? parseInt(myTeamSetting.value, 10) : undefined;
+      const result = await createMockEvent({
+        name: mockName.trim(),
+        myTeamNumber: savedTeam && !isNaN(savedTeam) ? savedTeam : undefined,
+      }) as any;
+      setMockMsg(`Created mock event "${mockName.trim()}" — ${result.teamsCount} teams, ${result.matchesCount} matches.`);
+      setMockName("");
+    } catch (e: any) {
+      setMockMsg("Error: " + e.message);
+    } finally {
+      setCreatingMock(false);
+    }
+  }
+
+  async function handleSaveMyTeam() {
+    const num = parseInt(myTeamInput, 10);
+    if (!myTeamInput.trim() || isNaN(num) || num < 1 || num > 9999) return;
+    await setAppSetting({ key: "myTeamNumber", value: String(num) });
+    setMyTeamInput("");
+  }
+
+  async function handleDeleteMock(key: string) {
+    if (!confirm(`Delete mock event "${key}" and all its data?`)) return;
+    try {
+      await deleteMockEvent({ eventKey: key });
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -66,34 +109,39 @@ function EventTab() {
         {event ? (
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-semibold text-slate-100">{event.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-slate-100">{event.name}</p>
+                {(event as any).isMock && <Badge color="yellow">MOCK</Badge>}
+              </div>
               <p className="text-xs text-slate-500">{event.eventKey}</p>
-              {event.tbaLastSynced && (
+              {event.tbaLastSynced && !(event as any).isMock && (
                 <p className="text-xs text-slate-600 mt-1">
                   Last synced: {new Date(event.tbaLastSynced).toLocaleTimeString()}
                 </p>
               )}
             </div>
-            <div className="flex gap-2">
-              <Button onClick={async () => {
-                if (!event) return;
-                setSyncing(true);
-                setSyncMsg("");
-                try {
-                  const r = await syncPhotos({ eventKey: event.eventKey });
-                  setSyncMsg(`Synced ${(r as any).synced} robot photos.`);
-                } catch (e: any) {
-                  setSyncMsg("Error: " + e.message);
-                } finally {
-                  setSyncing(false);
-                }
-              }} disabled={syncing} size="sm" variant="secondary">
-                {syncing ? <Spinner size="sm" /> : "Sync Photos"}
-              </Button>
-              <Button onClick={handleSync} disabled={syncing} size="sm">
-                {syncing ? <Spinner size="sm" /> : "Sync TBA"}
-              </Button>
-            </div>
+            {!(event as any).isMock && (
+              <div className="flex gap-2">
+                <Button onClick={async () => {
+                  if (!event) return;
+                  setSyncing(true);
+                  setSyncMsg("");
+                  try {
+                    const r = await syncPhotos({ eventKey: event.eventKey });
+                    setSyncMsg(`Synced ${(r as any).synced} robot photos.`);
+                  } catch (e: any) {
+                    setSyncMsg("Error: " + e.message);
+                  } finally {
+                    setSyncing(false);
+                  }
+                }} disabled={syncing} size="sm" variant="secondary">
+                  {syncing ? <Spinner size="sm" /> : "Sync Photos"}
+                </Button>
+                <Button onClick={handleSync} disabled={syncing} size="sm">
+                  {syncing ? <Spinner size="sm" /> : "Sync TBA"}
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-slate-500 text-sm">No active event.</p>
@@ -119,18 +167,71 @@ function EventTab() {
       </Card>
 
       <Card>
+        <p className="text-xs text-slate-400 mb-3">My Team Number</p>
+        <p className="text-xs text-slate-500 mb-3">
+          Your team will be included in all new mock events and highlighted in match analysis.
+        </p>
+        {myTeamSetting?.value && (
+          <p className="text-sm text-blue-400 mb-2 font-medium">Current: Team {myTeamSetting.value}</p>
+        )}
+        <div className="flex gap-2">
+          <input
+            type="number"
+            value={myTeamInput}
+            onChange={(e) => setMyTeamInput(e.target.value)}
+            placeholder={myTeamSetting?.value ?? "e.g. 2928"}
+            min={1}
+            max={9999}
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+          />
+          <Button size="sm" onClick={handleSaveMyTeam} disabled={!myTeamInput.trim()}>Save</Button>
+        </div>
+      </Card>
+
+      <Card>
+        <p className="text-xs text-slate-400 mb-3">Create Mock Competition</p>
+        <p className="text-xs text-slate-500 mb-3">
+          Generates 40 teams and 70 qual matches with times spanning today and tomorrow — useful for testing the scheduler and training scouts.
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={mockName}
+            onChange={(e) => setMockName(e.target.value)}
+            placeholder="e.g. Practice Event"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+          />
+          <Button size="sm" onClick={handleCreateMock} disabled={creatingMock || !mockName.trim()}>
+            {creatingMock ? <Spinner size="sm" /> : "Create Mock"}
+          </Button>
+        </div>
+        {mockMsg && (
+          <p className={`mt-2 text-xs ${mockMsg.startsWith("Error") ? "text-red-400" : "text-green-400"}`}>
+            {mockMsg}
+          </p>
+        )}
+      </Card>
+
+      <Card>
         <p className="text-xs text-slate-400 mb-3">All Events</p>
         {events?.map((e) => (
           <div key={e._id} className="flex items-center justify-between py-2 border-b border-slate-800/50 last:border-b-0">
-            <div>
-              <span className="text-sm text-slate-200">{e.name}</span>
-              {e.isActive && <Badge color="green" className="ml-2">Active</Badge>}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm text-slate-200 truncate">{e.name}</span>
+              {e.isActive && <Badge color="green">Active</Badge>}
+              {(e as any).isMock && <Badge color="yellow">MOCK</Badge>}
             </div>
-            {!e.isActive && (
-              <Button variant="ghost" size="sm" onClick={() => setActiveEvent({ eventId: e._id })}>
-                Set Active
-              </Button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {!e.isActive && (
+                <Button variant="ghost" size="sm" onClick={() => setActiveEvent({ eventId: e._id })}>
+                  Set Active
+                </Button>
+              )}
+              {(e as any).isMock && (
+                <Button variant="ghost" size="sm" onClick={() => handleDeleteMock(e.eventKey)}>
+                  <span className="text-red-400">Delete</span>
+                </Button>
+              )}
+            </div>
           </div>
         ))}
       </Card>
@@ -142,9 +243,13 @@ function EventTab() {
 function UsersTab() {
   const users = useQuery(api.users.listUsers);
   const updateRole = useMutation(api.users.updateUserRole);
+  const createBot = useMutation(api.users.createBotAccount);
+  const deleteBot = useMutation(api.users.deleteBotAccount);
   const generateResetCode = useAction(api.passwordReset.generateResetCode);
   const [resetCodes, setResetCodes] = useState<Record<string, { code: string; email: string }>>({});
   const [resetting, setResetting] = useState<string | null>(null);
+  const [botName, setBotName] = useState("");
+  const [creatingBot, setCreatingBot] = useState(false);
 
   if (!users) return <Spinner />;
 
@@ -160,53 +265,111 @@ function UsersTab() {
     }
   }
 
+  async function handleCreateBot() {
+    if (!botName.trim()) return;
+    setCreatingBot(true);
+    try {
+      await createBot({ displayName: botName.trim() });
+      setBotName("");
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    } finally {
+      setCreatingBot(false);
+    }
+  }
+
+  async function handleDeleteBot(profileId: string, name: string) {
+    if (!confirm(`Delete bot "${name}"? This will remove all their match assignments.`)) return;
+    try {
+      await deleteBot({ profileId: profileId as any });
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    }
+  }
+
   return (
-    <Card padding={false}>
-      {users.map((u: any) => (
-        <div key={u._id} className="px-4 py-3 border-b border-slate-800/50 last:border-b-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-200">{u.displayName}</p>
-              <p className="text-xs text-slate-500">{u.email}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={u.role}
-                onChange={(e) => updateRole({ profileId: u._id, role: e.target.value as any })}
-                className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none"
-              >
-                <option value="scout">scout</option>
-                <option value="analyst">analyst</option>
-                <option value="admin">admin</option>
-              </select>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={resetting === u._id}
-                onClick={() => handleReset(u.userId, u._id)}
-              >
-                {resetting === u._id ? <Spinner size="sm" /> : "Reset PW"}
-              </Button>
-            </div>
-          </div>
-          {resetCodes[u._id] && (
-            <div className="mt-2 bg-slate-800 rounded-lg px-3 py-2 flex items-center justify-between gap-3">
+    <div className="space-y-4">
+      <Card padding={false}>
+        {users.map((u: any) => (
+          <div key={u._id} className="px-4 py-3 border-b border-slate-800/50 last:border-b-0">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-400">Reset code (expires 24h):</p>
-                <p className="text-sm font-mono font-bold text-blue-300">{resetCodes[u._id].code}</p>
-                <p className="text-xs text-slate-500">for {resetCodes[u._id].email}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-slate-200">{u.displayName}</p>
+                  {u.isBot && <Badge color="yellow">BOT</Badge>}
+                </div>
+                <p className="text-xs text-slate-500">{u.isBot ? "No login" : u.email}</p>
               </div>
-              <button
-                onClick={() => navigator.clipboard.writeText(resetCodes[u._id].code)}
-                className="text-xs text-slate-400 hover:text-slate-200"
-              >
-                Copy
-              </button>
+              <div className="flex items-center gap-2">
+                {!u.isBot && (
+                  <select
+                    value={u.role}
+                    onChange={(e) => updateRole({ profileId: u._id, role: e.target.value as any })}
+                    className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none"
+                  >
+                    <option value="scout">scout</option>
+                    <option value="analyst">analyst</option>
+                    <option value="admin">admin</option>
+                  </select>
+                )}
+                {u.isBot ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteBot(u._id, u.displayName)}
+                  >
+                    <span className="text-red-400">Delete</span>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={resetting === u._id}
+                    onClick={() => handleReset(u.userId, u._id)}
+                  >
+                    {resetting === u._id ? <Spinner size="sm" /> : "Reset PW"}
+                  </Button>
+                )}
+              </div>
             </div>
-          )}
+            {resetCodes[u._id] && (
+              <div className="mt-2 bg-slate-800 rounded-lg px-3 py-2 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs text-slate-400">Reset code (expires 24h):</p>
+                  <p className="text-sm font-mono font-bold text-blue-300">{resetCodes[u._id].code}</p>
+                  <p className="text-xs text-slate-500">for {resetCodes[u._id].email}</p>
+                </div>
+                <button
+                  onClick={() => navigator.clipboard.writeText(resetCodes[u._id].code)}
+                  className="text-xs text-slate-400 hover:text-slate-200"
+                >
+                  Copy
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </Card>
+
+      <Card>
+        <p className="text-xs text-slate-400 mb-3">Create Bot Account</p>
+        <p className="text-xs text-slate-500 mb-3">
+          Bot accounts can be assigned in the scheduler like real scouts but have no login credentials.
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={botName}
+            onChange={(e) => setBotName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreateBot()}
+            placeholder="e.g. Bot Alpha"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+          />
+          <Button size="sm" onClick={handleCreateBot} disabled={creatingBot || !botName.trim()}>
+            {creatingBot ? <Spinner size="sm" /> : "Create Bot"}
+          </Button>
         </div>
-      ))}
-    </Card>
+      </Card>
+    </div>
   );
 }
 
@@ -236,7 +399,6 @@ function AssignmentsTab() {
   const bulkReassign = useMutation(api.matchAssignments.bulkReassign);
   const generateAutoAssignments = useAction(api.actions.autoAssign.generateAutoAssignments);
 
-  const [selectedMatch, setSelectedMatch] = useState("");
   const [shiftSize, setShiftSize] = useState(3);
   const [clearExisting, setClearExisting] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -245,6 +407,7 @@ function AssignmentsTab() {
   const [toUserId, setToUserId] = useState("");
   const [reassigning, setReassigning] = useState(false);
   const [reassignMsg, setReassignMsg] = useState("");
+  const [selectedScoutUserId, setSelectedScoutUserId] = useState<string | null>(null);
 
   if (!event)
     return <p className="text-slate-400 text-sm">No active event.</p>;
@@ -276,8 +439,6 @@ function AssignmentsTab() {
   const assignedMap = new Map(
     (coverage ?? []).map((c) => [`${c.matchKey}:${c.alliance}:${c.position}`, c.userId]),
   );
-
-  const match = qmMatches.find((m) => m.matchKey === selectedMatch);
 
   async function handleGenerate() {
     if (!event) return;
@@ -343,7 +504,20 @@ function AssignmentsTab() {
               <tbody>
                 {scouts.map((scout: any) => (
                   <tr key={scout._id}>
-                    <td className="text-slate-300 pr-4 py-1 whitespace-nowrap">{scout.displayName}</td>
+                    <td className="pr-4 py-1 whitespace-nowrap">
+                      <button
+                        onClick={() => setSelectedScoutUserId(
+                          selectedScoutUserId === scout.userId ? null : scout.userId
+                        )}
+                        className={`text-xs px-2 py-0.5 rounded transition-colors ${
+                          selectedScoutUserId === scout.userId
+                            ? "bg-yellow-600/70 text-yellow-100 font-semibold"
+                            : "text-slate-300 hover:text-slate-100 hover:bg-slate-700"
+                        }`}
+                      >
+                        {scout.displayName}
+                      </button>
+                    </td>
                     {eventDays.map((d) => {
                       const isAvail = availSet.has(`${scout.userId}:${d}`);
                       return (
@@ -463,75 +637,109 @@ function AssignmentsTab() {
         </div>
       </Card>
 
-      {/* Manual assignment */}
+      {/* Match assignment table */}
       <div>
-        <label className="block text-xs text-slate-400 mb-1">Select Match</label>
-        <select
-          value={selectedMatch}
-          onChange={(e) => setSelectedMatch(e.target.value)}
-          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
-        >
-          <option value="">Choose match…</option>
-          {qmMatches.map((m) => (
-            <option key={m.matchKey} value={m.matchKey}>
-              {m.matchKey.split("_")[1]?.toUpperCase()}
-            </option>
-          ))}
-        </select>
-      </div>
+        <p className="text-xs text-slate-400 mb-2">Match Assignments ({qmMatches.length} matches)</p>
+        {qmMatches.length === 0 ? (
+          <p className="text-xs text-slate-500">No matches — sync TBA or create a mock event first.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <table className="w-auto text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  <th className="text-left text-slate-500 font-medium px-3 py-2 w-14">Match</th>
+                  <th className="text-center text-red-400 font-medium px-2 py-2" colSpan={3}>Red</th>
+                  <th className="text-center text-blue-400 font-medium px-2 py-2" colSpan={3}>Blue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {qmMatches.map((m) => {
+                  const slots = [
+                    { alliance: "red" as const, pos: 1 as const, team: m.redAlliance[0] },
+                    { alliance: "red" as const, pos: 2 as const, team: m.redAlliance[1] },
+                    { alliance: "red" as const, pos: 3 as const, team: m.redAlliance[2] },
+                    { alliance: "blue" as const, pos: 1 as const, team: m.blueAlliance[0] },
+                    { alliance: "blue" as const, pos: 2 as const, team: m.blueAlliance[1] },
+                    { alliance: "blue" as const, pos: 3 as const, team: m.blueAlliance[2] },
+                  ];
+                  const scoutedCount = slots.filter((s) =>
+                    coverageSet.has(`${m.matchKey}:${s.alliance}:${s.pos}`)
+                  ).length;
+                  const assignedCount = (coverage ?? []).filter((c) => c.matchKey === m.matchKey).length;
+                  const rowHasSelected = selectedScoutUserId !== null && slots.some((s) =>
+                    assignedMap.get(`${m.matchKey}:${s.alliance}:${s.pos}`) === selectedScoutUserId
+                  );
 
-      {match && (
-        <Card>
-          {(["red", "blue"] as const).map((alliance) => {
-            const teams =
-              alliance === "red" ? match.redAlliance : match.blueAlliance;
-            return (
-              <div key={alliance} className="mb-4 last:mb-0">
-                <p className={`text-xs font-medium mb-2 ${alliance === "red" ? "text-red-400" : "text-blue-400"}`}>
-                  {alliance.toUpperCase()} ALLIANCE
-                </p>
-                {teams.map((t, i) => {
-                  const pos = (i + 1) as 1 | 2 | 3;
-                  const key = `${match.matchKey}:${alliance}:${pos}`;
-                  const scouted = coverageSet.has(key);
-                  const currentUserId = assignedMap.get(key);
                   return (
-                    <div key={t} className="flex items-center gap-3 py-1.5">
-                      <span className="text-sm text-slate-300 w-12">{t}</span>
-                      {scouted ? (
-                        <Badge color="green">Scouted</Badge>
-                      ) : (
-                        <select
-                          value={currentUserId ?? ""}
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              assignScout({
-                                eventKey: event.eventKey,
-                                matchKey: match.matchKey,
-                                userId: e.target.value as any,
-                                alliance,
-                                position: pos,
-                              });
-                            }
-                          }}
-                          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none flex-1 max-w-[180px]"
-                        >
-                          <option value="">Assign scout…</option>
-                          {(users as any[]).map((u) => (
-                            <option key={u._id} value={u.userId}>
-                              {u.displayName}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
+                    <tr key={m.matchKey} className={`border-b border-slate-800/60 last:border-b-0 hover:bg-slate-800/20 ${rowHasSelected ? "bg-yellow-900/30" : ""}`}>
+                      {/* Match label + coverage badge */}
+                      <td className="px-3 py-0 align-middle w-14">
+                        <p className="font-bold text-slate-200 whitespace-nowrap">
+                          {m.matchKey.split("_").pop()?.toUpperCase()}
+                        </p>
+                        <p className={`text-xs mt-0.5 ${
+                          scoutedCount === 6 ? "text-green-400" : assignedCount === 6 ? "text-blue-400" : "text-slate-600"
+                        }`}>
+                          {scoutedCount === 6 ? "✓" : `${assignedCount}/6`}
+                        </p>
+                      </td>
+
+                      {/* 6 slots — each is a mini two-line cell: team number over scout name */}
+                      {slots.map(({ alliance, pos, team }) => {
+                        const slotKey = `${m.matchKey}:${alliance}:${pos}`;
+                        const scouted = coverageSet.has(slotKey);
+                        const currentUserId = assignedMap.get(slotKey);
+                        const currentScout = (scouts as any[]).find((s) => s.userId === currentUserId);
+                        const isHighlighted = selectedScoutUserId !== null && currentUserId === selectedScoutUserId;
+                        const teamColor = alliance === "red" ? "text-red-300" : "text-blue-300";
+                        const bgColor = isHighlighted
+                          ? "bg-yellow-600/30"
+                          : scouted
+                            ? "bg-green-900/20"
+                            : "";
+
+                        return (
+                          <td key={slotKey} className={`px-1.5 py-1.5 ${bgColor}`}>
+                            {/* Team number */}
+                            <p className={`font-mono font-semibold ${teamColor} mb-0.5`}>{team}</p>
+                            {/* Scout assignment */}
+                            {scouted ? (
+                              <p className={`truncate max-w-[135px] ${isHighlighted ? "text-yellow-300 font-semibold" : "text-green-400"}`}>
+                                ✓ {currentScout?.displayName ?? "—"}
+                              </p>
+                            ) : (
+                              <select
+                                value={currentUserId ?? ""}
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    assignScout({
+                                      eventKey: event.eventKey,
+                                      matchKey: m.matchKey,
+                                      userId: e.target.value as any,
+                                      alliance,
+                                      position: pos,
+                                    });
+                                  }
+                                }}
+                                className="w-full max-w-[135px] bg-slate-800 border border-slate-700 rounded px-1 py-0.5 text-slate-300 focus:outline-none focus:border-blue-500"
+                              >
+                                <option value="">—</option>
+                                {(scouts as any[]).map((u: any) => (
+                                  <option key={u._id} value={u.userId}>{u.displayName}</option>
+                                ))}
+                              </select>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
                   );
                 })}
-              </div>
-            );
-          })}
-        </Card>
-      )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Coverage summary */}
       <Card>
@@ -570,7 +778,7 @@ function RawDataTab() {
           <div key={e._id} className="flex items-center justify-between px-4 py-3 border-b border-slate-800/50 last:border-b-0 gap-3">
             <div className="min-w-0">
               <p className="text-sm text-slate-200 font-medium">
-                {e.matchKey.split("_")[1]?.toUpperCase()} — Team {e.teamNumber}
+                {e.matchKey.split("_").pop()?.toUpperCase()} — Team {e.teamNumber}
               </p>
               <p className="text-xs text-slate-500">
                 {e.alliance.toUpperCase()} {e.alliancePosition} · {userMap.get(e.scoutUserId) ?? "Unknown"}

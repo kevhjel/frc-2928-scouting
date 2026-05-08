@@ -5,7 +5,19 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   ResponsiveContainer,
+  Tooltip,
+  type TooltipProps,
 } from "recharts";
+
+function RadarTooltip({ active, payload, label }: TooltipProps<number, string>) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", textAlign: "center" }}>
+      <p style={{ color: "#94a3b8", marginBottom: "2px" }}>{label}</p>
+      <p style={{ color: "#e2e8f0", fontWeight: 600 }}>{payload[0]?.value}</p>
+    </div>
+  );
+}
 import { TeamStats } from "../../../convex/stats";
 import { ScoutingField } from "../../lib/configTypes";
 
@@ -15,6 +27,7 @@ interface Props {
   labelA?: string;
   labelB?: string;
   fields: ScoutingField[];
+  color?: string;
 }
 
 const RADAR_FIELD_IDS = [
@@ -25,7 +38,8 @@ const RADAR_FIELD_IDS = [
   "tele_defense_handling",
 ];
 
-export default function TeamRadarChart({ stats, statsB, labelA, labelB, fields }: Props) {
+export default function TeamRadarChart({ stats, statsB, labelA, labelB, fields, color }: Props) {
+  const primaryColor = color ?? "#ef4444";
   const radarFields = RADAR_FIELD_IDS.map((id) => fields.find((f) => f.id === id)).filter(Boolean) as typeof fields;
 
   const data = radarFields.map((f) => {
@@ -44,11 +58,12 @@ export default function TeamRadarChart({ stats, statsB, labelA, labelB, fields }
         <PolarGrid stroke="#334155" />
         <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 11 }} />
         <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
+        <Tooltip content={<RadarTooltip />} />
         <Radar
           name={labelA ?? "Team"}
           dataKey="a"
-          stroke="#ef4444"
-          fill="#ef4444"
+          stroke={primaryColor}
+          fill={primaryColor}
           fillOpacity={statsB ? 0.2 : 0.3}
         />
         {statsB && (
