@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { ScoutingConfig, EntryData, getDefaultData, FieldValue } from "../../lib/configTypes";
 import FieldRenderer from "./FieldRenderer";
-import Button from "../ui/Button";
 
 interface Props {
   config: ScoutingConfig;
@@ -10,6 +9,7 @@ interface Props {
   onSubmit: (data: EntryData) => Promise<void>;
   submitLabel?: string;
   sectionExtras?: Record<string, React.ReactNode>;
+  onDiscard?: () => void;
 }
 
 export default function DynamicScoutingForm({
@@ -19,6 +19,7 @@ export default function DynamicScoutingForm({
   onSubmit,
   submitLabel = "Submit",
   sectionExtras,
+  onDiscard,
 }: Props) {
   const fields = formType === "match" ? config.matchFields : config.pitFields;
   const sections = formType === "match" ? config.matchSections : config.pitSections;
@@ -44,13 +45,13 @@ export default function DynamicScoutingForm({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Section tabs */}
-      <div className="flex overflow-x-auto gap-1 px-4 py-2 bg-slate-900 border-b border-slate-800 scrollbar-hide">
+      {/* Section tabs + submit */}
+      <div className="flex gap-1 px-2 py-2 bg-slate-900 border-b border-slate-800">
         {sections.map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-colors ${
               activeSection === section
                 ? "bg-blue-600 text-white"
                 : "bg-slate-800 text-slate-400 hover:text-slate-200"
@@ -59,6 +60,13 @@ export default function DynamicScoutingForm({
             {section.charAt(0).toUpperCase() + section.slice(1)}
           </button>
         ))}
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="flex-shrink-0 px-3 py-2.5 rounded-lg text-xs font-semibold bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white transition-colors"
+        >
+          {submitting ? "…" : "✓"}
+        </button>
       </div>
 
       {/* Fields */}
@@ -86,17 +94,16 @@ export default function DynamicScoutingForm({
         )}
       </div>
 
-      {/* Submit */}
-      <div className="p-4 border-t border-slate-800 bg-slate-950">
-        <Button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="w-full"
-          size="lg"
-        >
-          {submitting ? "Submitting…" : submitLabel}
-        </Button>
-      </div>
+      {onDiscard && (
+        <div className="px-4 py-2 border-t border-slate-800">
+          <button
+            onClick={onDiscard}
+            className="w-full py-2 rounded-lg text-sm font-medium text-red-400 border border-red-900 hover:bg-red-900/20 transition-colors"
+          >
+            Discard &amp; go back
+          </button>
+        </div>
+      )}
     </div>
   );
 }

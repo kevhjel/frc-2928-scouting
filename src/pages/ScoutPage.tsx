@@ -97,11 +97,11 @@ export default function ScoutPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState("");
 
-  const { setHideNav } = useNavVisibility();
+  const { setHasUnsavedData } = useNavVisibility();
   useEffect(() => {
     const active = !!(matchKey && teamNumber && !submitted);
-    setHideNav(active);
-    return () => setHideNav(false);
+    setHasUnsavedData(active);
+    return () => setHasUnsavedData(false);
   }, [matchKey, teamNumber, submitted]);
 
   // Build per-match coverage count
@@ -350,6 +350,12 @@ export default function ScoutPage() {
           formType="match"
           onSubmit={handleSubmit}
           submitLabel={`Submit — Team ${teamNumber}`}
+          onDiscard={() => {
+            setMatchKey("");
+            setTeamNumber("");
+            setSelectedTags([]);
+            setCustomTagInput("");
+          }}
           sectionExtras={{
             notes: (
               <div className="space-y-4">

@@ -466,7 +466,7 @@ export default function MatchAnalysisPage() {
                 }));
                 const offenseMetrics = computeOffenseMetrics(rawValues);
                 return (
-                  <div className="flex gap-3">
+                  <div className="flex flex-col md:flex-row gap-3">
                     <AllianceColumn
                       teams={analysisData.redTeams}
                       alliance="red"
