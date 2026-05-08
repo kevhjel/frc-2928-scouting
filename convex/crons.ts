@@ -5,7 +5,7 @@ const crons = cronJobs();
 
 crons.interval(
   "auto-sync TBA and Statbotics",
-  { minutes: 30 },
+  { minutes: 5 },
   internal.actions.autoSync.runAutoSync,
   {},
 );
