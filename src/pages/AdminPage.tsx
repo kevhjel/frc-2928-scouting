@@ -243,6 +243,7 @@ function EventTab() {
 function UsersTab() {
   const users = useQuery(api.users.listUsers);
   const updateRole = useMutation(api.users.updateUserRole);
+  const updateDisplayName = useMutation(api.users.adminUpdateDisplayName);
   const createBot = useMutation(api.users.createBotAccount);
   const deleteBot = useMutation(api.users.deleteBotAccount);
   const generateResetCode = useAction(api.passwordReset.generateResetCode);
@@ -250,6 +251,8 @@ function UsersTab() {
   const [resetting, setResetting] = useState<string | null>(null);
   const [botName, setBotName] = useState("");
   const [creatingBot, setCreatingBot] = useState(false);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [nameInput, setNameInput] = useState("");
 
   if (!users) return <Spinner />;
 
@@ -293,9 +296,38 @@ function UsersTab() {
         {users.map((u: any) => (
           <div key={u._id} className="px-4 py-3 border-b border-slate-800/50 last:border-b-0">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-slate-200">{u.displayName}</p>
+                  {editingName === u._id ? (
+                    <form
+                      className="flex items-center gap-1"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!nameInput.trim()) return;
+                        await updateDisplayName({ profileId: u._id, displayName: nameInput.trim() }).catch(() => {});
+                        setEditingName(null);
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Escape" && setEditingName(null)}
+                        className="bg-slate-700 border border-slate-600 rounded px-2 py-0.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 w-36"
+                      />
+                      <button type="submit" className="text-xs text-blue-400 hover:text-blue-300">Save</button>
+                      <button type="button" onClick={() => setEditingName(null)} className="text-xs text-slate-500 hover:text-slate-300">✕</button>
+                    </form>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-slate-200">{u.displayName}</p>
+                      <button
+                        onClick={() => { setEditingName(u._id); setNameInput(u.displayName); }}
+                        className="text-slate-600 hover:text-slate-400 text-xs"
+                        title="Edit name"
+                      >✎</button>
+                    </>
+                  )}
                   {u.isBot && <Badge color="yellow">BOT</Badge>}
                 </div>
                 <p className="text-xs text-slate-500">{u.isBot ? "No login" : u.email}</p>

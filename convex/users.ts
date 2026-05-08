@@ -58,6 +58,20 @@ export const ensureProfile = mutation({
   },
 });
 
+export const adminUpdateDisplayName = mutation({
+  args: { profileId: v.id("userProfiles"), displayName: v.string() },
+  handler: async (ctx, { profileId, displayName }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthenticated");
+    const myProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (myProfile?.role !== "admin") throw new Error("Unauthorized");
+    await ctx.db.patch(profileId, { displayName });
+  },
+});
+
 export const updateMyProfile = mutation({
   args: { displayName: v.string() },
   handler: async (ctx, { displayName }) => {
