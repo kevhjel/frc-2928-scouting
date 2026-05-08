@@ -21,7 +21,7 @@ export default function BottomNav() {
   );
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 sm:hidden bg-slate-900 border-t border-slate-800 z-40">
+    <nav className="sm:hidden bg-slate-900 border-t border-slate-800 shrink-0">
       <div className="flex">
         {visible.map((item) => (
           <NavLink

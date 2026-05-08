@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavVisibility } from "../context/NavVisibility";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useActiveEvent } from "../hooks/useActiveEvent";
@@ -95,6 +96,13 @@ export default function ScoutPage() {
   const [submitted, setSubmitted] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState("");
+
+  const { setHideNav } = useNavVisibility();
+  useEffect(() => {
+    const active = !!(matchKey && teamNumber && !submitted);
+    setHideNav(active);
+    return () => setHideNav(false);
+  }, [matchKey, teamNumber, submitted]);
 
   // Build per-match coverage count
   const matchCoverageMap = useMemo(() => {
