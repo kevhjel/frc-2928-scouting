@@ -1,25 +1,12 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useActiveEvent } from "../hooks/useActiveEvent";
 import { useActiveScoutingConfig } from "../hooks/useScoutingConfig";
 import Spinner from "../components/ui/Spinner";
 import TeamRadarChart from "../components/charts/TeamRadarChart";
-import {
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip,
-  type TooltipProps,
-} from "recharts";
-
-function OffenseTooltip({ active, payload, label }: TooltipProps<number, string>) {
-  if (!active || !payload?.length) return null;
-  const raw = (payload[0] as any)?.payload?.raw;
-  return (
-    <div style={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", textAlign: "center" }}>
-      <p style={{ color: "#94a3b8", marginBottom: "2px" }}>{label}</p>
-      <p style={{ color: "#e2e8f0", fontWeight: 600 }}>{raw ?? payload[0]?.value}</p>
-    </div>
-  );
-}
+import OffenseRadarChart from "../components/charts/OffenseRadarChart";
+import { computeOffenseMetrics, type NormalizedOffenseMetrics, type RawOffenseValues } from "../lib/offenseMetrics";
 
 function matchLabel(matchKey: string): string {
   const part = matchKey.split("_").pop() ?? matchKey;
@@ -54,16 +41,6 @@ type FieldDef = {
   aggregatable: boolean;
 };
 
-type NormalizedOffenseMetrics = {
-  autoBalls: number;
-  teleBalls: number;
-  fedBalls: number;
-  epa: number;
-  rawAutoBalls: number;
-  rawTeleBalls: number;
-  rawFedBalls: number;
-  rawEpa: number;
-};
 
 function PitQuestionWidget({ eventKey, teamNumber }: { eventKey: string; teamNumber: number }) {
   const addQuestion = useMutation(api.pitQuestions.addQuestion);
@@ -112,26 +89,7 @@ function PitQuestionWidget({ eventKey, teamNumber }: { eventKey: string; teamNum
   );
 }
 
-function OffenseRadarChart({ metrics, alliance }: { metrics: NormalizedOffenseMetrics; alliance: "red" | "blue" }) {
-  const color = alliance === "red" ? "#ef4444" : "#3b82f6";
-  const data = [
-    { subject: "Auto Balls", a: Math.round(metrics.autoBalls * 10) / 10, raw: Math.round(metrics.rawAutoBalls * 10) / 10, fullMark: 5 },
-    { subject: "Tele Balls", a: Math.round(metrics.teleBalls * 10) / 10, raw: Math.round(metrics.rawTeleBalls * 10) / 10, fullMark: 5 },
-    { subject: "Fed Balls", a: Math.round(metrics.fedBalls * 10) / 10, raw: Math.round(metrics.rawFedBalls * 10) / 10, fullMark: 5 },
-    { subject: "EPA", a: Math.round(metrics.epa * 10) / 10, raw: Math.round(metrics.rawEpa * 10) / 10, fullMark: 5 },
-  ];
-  return (
-    <ResponsiveContainer width="100%" height={260}>
-      <RadarChart data={data} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
-        <PolarGrid stroke="#334155" />
-        <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-        <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
-        <Tooltip content={<OffenseTooltip />} />
-        <Radar name="Offense" dataKey="a" stroke={color} fill={color} fillOpacity={0.3} />
-      </RadarChart>
-    </ResponsiveContainer>
-  );
-}
+
 
 function TeamCard({
   team,
@@ -373,7 +331,16 @@ function AllianceColumn({
 export default function MatchAnalysisPage() {
   const event = useActiveEvent();
   const config = useActiveScoutingConfig();
+  const profile = useQuery(api.users.getCurrentUserProfile);
+  const syncTBA = useAction(api.actions.tbaSync.syncEventFromTBA);
+  const [syncing, setSyncing] = useState(false);
+  const [now, setNow] = useState(Date.now());
   const [selectedMatchKey, setSelectedMatchKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const matches = useQuery(
     api.matches.getMatchesForEvent,
@@ -403,7 +370,29 @@ export default function MatchAnalysisPage() {
 
   return (
     <div className="p-4 max-w-5xl mx-auto space-y-4">
-      <h1 className="text-lg font-semibold text-slate-100">Match Analysis</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-slate-100">Match Analysis</h1>
+        <div className="flex items-center gap-3">
+          {event.tbaLastSynced && !event.isMock && (
+            <span className="text-xs text-slate-500">
+              Synced {Math.round((now - event.tbaLastSynced) / 60_000)} min ago
+            </span>
+          )}
+          {profile?.role === "admin" && !event.isMock && (
+            <button
+              onClick={async () => {
+                setSyncing(true);
+                try { await syncTBA({ eventKey: event.eventKey }); } catch {}
+                setSyncing(false);
+              }}
+              disabled={syncing}
+              className="text-xs px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 disabled:opacity-40 transition-colors"
+            >
+              {syncing ? "Syncing…" : "Sync Now"}
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Match selector */}
       {!matches ? (
@@ -468,30 +457,14 @@ export default function MatchAnalysisPage() {
             <>
               {(() => {
                 const allTeams = [...analysisData.redTeams, ...analysisData.blueTeams];
-                const rawValues = allTeams.map((t) => ({
+                const rawValues: RawOffenseValues[] = allTeams.map((t) => ({
+                  teamNumber: t.teamNumber,
                   autoBalls: numStat(t, "auto_avg_balls_cycle") * numStat(t, "auto_shoot_cycles"),
                   teleBalls: numStat(t, "tele_avg_balls_shot") * numStat(t, "tele_shoot_cycles"),
                   fedBalls: numStat(t, "tele_avg_balls_fed") * numStat(t, "tele_feed_cycles"),
                   epa: Math.max(0, t.epa ?? 0),
                 }));
-                const maxAuto = Math.max(...rawValues.map((v) => v.autoBalls), 1);
-                const maxTele = Math.max(...rawValues.map((v) => v.teleBalls), 1);
-                const maxFed = Math.max(...rawValues.map((v) => v.fedBalls), 1);
-                const maxEpa = Math.max(...rawValues.map((v) => v.epa), 1);
-                const offenseMetrics: Record<number, NormalizedOffenseMetrics> = {};
-                allTeams.forEach((t, i) => {
-                  const r = rawValues[i];
-                  offenseMetrics[t.teamNumber] = {
-                    autoBalls: (r.autoBalls / maxAuto) * 5,
-                    teleBalls: (r.teleBalls / maxTele) * 5,
-                    fedBalls: (r.fedBalls / maxFed) * 5,
-                    epa: (r.epa / maxEpa) * 5,
-                    rawAutoBalls: r.autoBalls,
-                    rawTeleBalls: r.teleBalls,
-                    rawFedBalls: r.fedBalls,
-                    rawEpa: r.epa,
-                  };
-                });
+                const offenseMetrics = computeOffenseMetrics(rawValues);
                 return (
                   <div className="flex gap-3">
                     <AllianceColumn

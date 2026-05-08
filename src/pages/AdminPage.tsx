@@ -962,6 +962,77 @@ function ExportTab() {
   );
 }
 
+// ── Scouts Tab ─────────────────────────────────────────────────────────────────
+function ScoutsTab() {
+  const event = useActiveEvent();
+  const config = useActiveScoutingConfig();
+  const consistency = useQuery(
+    api.scoutConsistency.getScoutConsistency,
+    event ? { eventKey: event.eventKey } : "skip",
+  );
+
+  if (!event) return <p className="text-slate-400 text-sm">No active event.</p>;
+  if (consistency === undefined) return <Spinner />;
+
+  const fieldLabelMap = new Map(
+    (config?.matchFields ?? []).map((f) => [f.id, f.label]),
+  );
+
+  function deviationColor(dev: number) {
+    if (dev < 0.3) return "green" as const;
+    if (dev < 0.7) return "yellow" as const;
+    return "red" as const;
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-slate-500">
+        Deviation measures how far each scout's values differ from the consensus average across
+        scouts for the same team. Lower is more consistent. Only fields with 2+ scouts per team
+        are included.
+      </p>
+      {consistency.length === 0 ? (
+        <p className="text-sm text-slate-500">No scouting entries yet for this event.</p>
+      ) : (
+        <Card padding={false}>
+          {consistency.map((scout) => (
+            <div key={scout.userId} className="px-4 py-3 border-b border-slate-800/50 last:border-b-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-200">{scout.displayName}</p>
+                  <p className="text-xs text-slate-500">
+                    {scout.entryCount} {scout.entryCount === 1 ? "entry" : "entries"} · {scout.uniqueTeams} {scout.uniqueTeams === 1 ? "team" : "teams"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">Avg deviation:</span>
+                  <Badge color={deviationColor(scout.overallDeviation)}>
+                    {scout.overallDeviation.toFixed(2)}
+                  </Badge>
+                </div>
+              </div>
+              {Object.keys(scout.fieldDeviations).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                  {Object.entries(scout.fieldDeviations)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([fid, dev]) => (
+                      <span key={fid} className="text-xs">
+                        <span className="text-slate-400">{fieldLabelMap.get(fid) ?? fid}:</span>{" "}
+                        <span className={dev < 0.3 ? "text-green-400" : dev < 0.7 ? "text-yellow-400" : "text-red-400"}>
+                          {dev.toFixed(2)}
+                        </span>
+                      </span>
+                    ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // ── Main AdminPage ─────────────────────────────────────────────────────────────
 const tabs = [
   { path: "event", label: "Event" },
@@ -970,6 +1041,7 @@ const tabs = [
   { path: "config", label: "Config" },
   { path: "rawdata", label: "Raw Data" },
   { path: "export", label: "Export" },
+  { path: "scouts", label: "Scouts" },
 ];
 
 export default function AdminPage() {
@@ -1000,6 +1072,7 @@ export default function AdminPage() {
           <Route path="config" element={<ConfigTab />} />
           <Route path="rawdata" element={<RawDataTab />} />
           <Route path="export" element={<ExportTab />} />
+          <Route path="scouts" element={<ScoutsTab />} />
           <Route path="*" element={<EventTab />} />
         </Routes>
       </div>

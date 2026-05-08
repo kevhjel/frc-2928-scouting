@@ -26,6 +26,8 @@ import Spinner from "../components/ui/Spinner";
 import Card from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
 import TeamRadarChart from "../components/charts/TeamRadarChart";
+import OffenseRadarChart from "../components/charts/OffenseRadarChart";
+import { computeOffenseMetrics } from "../lib/offenseMetrics";
 
 interface RankedTeam {
   teamNumber: number;
@@ -959,15 +961,45 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
                 <TeamPanel num={numA} stats={sA} td={tdA} />
                 <TeamPanel num={numB} stats={sB} td={tdB} />
               </div>
-              {sA && sB && config && (
-                <TeamRadarChart
-                  stats={sA}
-                  statsB={sB}
-                  labelA={`Team ${numA}`}
-                  labelB={`Team ${numB}`}
-                  fields={config.matchFields as any}
-                />
-              )}
+              {sA && sB && config && (() => {
+                const numStatF = (s: typeof sA, id: string) => {
+                  const f = s?.fieldStats[id];
+                  return f?.type === "numeric" && f.count > 0 ? f.avg : 0;
+                };
+                const rawA = {
+                  teamNumber: numA,
+                  autoBalls: numStatF(sA, "auto_avg_balls_cycle") * numStatF(sA, "auto_shoot_cycles"),
+                  teleBalls: numStatF(sA, "tele_avg_balls_shot") * numStatF(sA, "tele_shoot_cycles"),
+                  fedBalls: numStatF(sA, "tele_avg_balls_fed") * numStatF(sA, "tele_feed_cycles"),
+                  epa: Math.max(0, sA.epa ?? 0),
+                };
+                const rawB = {
+                  teamNumber: numB,
+                  autoBalls: numStatF(sB, "auto_avg_balls_cycle") * numStatF(sB, "auto_shoot_cycles"),
+                  teleBalls: numStatF(sB, "tele_avg_balls_shot") * numStatF(sB, "tele_shoot_cycles"),
+                  fedBalls: numStatF(sB, "tele_avg_balls_fed") * numStatF(sB, "tele_feed_cycles"),
+                  epa: Math.max(0, sB.epa ?? 0),
+                };
+                const om = computeOffenseMetrics([rawA, rawB]);
+                return (
+                  <>
+                    <TeamRadarChart
+                      stats={sA}
+                      statsB={sB}
+                      labelA={`Team ${numA}`}
+                      labelB={`Team ${numB}`}
+                      fields={config.matchFields as any}
+                    />
+                    <OffenseRadarChart
+                      metrics={om[numA]}
+                      metricsB={om[numB]}
+                      alliance="red"
+                      labelA={`Team ${numA}`}
+                      labelB={`Team ${numB}`}
+                    />
+                  </>
+                );
+              })()}
               <p className="text-center text-sm text-slate-400">Which robot should rank higher?</p>
               <div className="grid grid-cols-3 gap-3">
                 <Button onClick={() => handleRankPick(numA)} className="w-full">← Team {numA}</Button>

@@ -31,6 +31,7 @@ import type * as pickList from "../pickList.js";
 import type * as pitQuestions from "../pitQuestions.js";
 import type * as pitScouting from "../pitScouting.js";
 import type * as scoutAvailability from "../scoutAvailability.js";
+import type * as scoutConsistency from "../scoutConsistency.js";
 import type * as scoutingConfig from "../scoutingConfig.js";
 import type * as stats from "../stats.js";
 import type * as teamFlags from "../teamFlags.js";
@@ -67,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   pitQuestions: typeof pitQuestions;
   pitScouting: typeof pitScouting;
   scoutAvailability: typeof scoutAvailability;
+  scoutConsistency: typeof scoutConsistency;
   scoutingConfig: typeof scoutingConfig;
   stats: typeof stats;
   teamFlags: typeof teamFlags;
