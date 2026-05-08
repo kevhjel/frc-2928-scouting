@@ -44,9 +44,7 @@ export default function LoginPage() {
         setNewPassword("");
       } else {
         await signIn("password", { email, password, flow });
-        if (flow === "signUp") {
-          await ensureProfile({ displayName: displayName || email.split("@")[0] });
-        }
+        await ensureProfile({ displayName: displayName || email.split("@")[0] });
       }
     } catch (err: any) {
       setError(err.message ?? "Authentication failed");
