@@ -322,6 +322,36 @@ function CompareModal({
                   labelB={`Team ${teamB}`}
                   fields={config?.matchFields as any ?? []}
                 />
+                {(() => {
+                  const numStatF = (s: typeof statsA, id: string) => {
+                    const f = s?.fieldStats?.[id];
+                    return (f as any)?.type === "numeric" && (f as any).count > 0 ? (f as any).avg : 0;
+                  };
+                  const rawA = {
+                    teamNumber: teamA!,
+                    autoBalls: numStatF(statsA, "auto_avg_balls_cycle") * numStatF(statsA, "auto_shoot_cycles"),
+                    teleBalls: numStatF(statsA, "tele_avg_balls_shot") * numStatF(statsA, "tele_shoot_cycles"),
+                    fedBalls: numStatF(statsA, "tele_avg_balls_fed") * numStatF(statsA, "tele_feed_cycles"),
+                    epa: Math.max(0, (statsA as any).epa ?? 0),
+                  };
+                  const rawB = {
+                    teamNumber: teamB!,
+                    autoBalls: numStatF(statsB, "auto_avg_balls_cycle") * numStatF(statsB, "auto_shoot_cycles"),
+                    teleBalls: numStatF(statsB, "tele_avg_balls_shot") * numStatF(statsB, "tele_shoot_cycles"),
+                    fedBalls: numStatF(statsB, "tele_avg_balls_fed") * numStatF(statsB, "tele_feed_cycles"),
+                    epa: Math.max(0, (statsB as any).epa ?? 0),
+                  };
+                  const om = computeOffenseMetrics([rawA, rawB]);
+                  return (
+                    <OffenseRadarChart
+                      metrics={om[teamA!]}
+                      metricsB={om[teamB!]}
+                      alliance="red"
+                      labelA={`Team ${teamA}`}
+                      labelB={`Team ${teamB}`}
+                    />
+                  );
+                })()}
                 <div className="flex gap-4 justify-center text-xs mb-1">
                   <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-red-500" />Team {teamA}</span>
                   <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-blue-500" />Team {teamB}</span>
