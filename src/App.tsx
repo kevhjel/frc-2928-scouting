@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import AppShell from "./components/layout/AppShell";
 import LoginPage from "./auth/LoginPage";
@@ -16,6 +17,14 @@ import Spinner from "./components/ui/Spinner";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
+  const ensureProfile = useMutation(api.users.ensureProfile);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      ensureProfile({}).catch(() => {});
+    }
+  }, [isAuthenticated]);
+
   if (isLoading)
     return (
       <div className="flex h-screen items-center justify-center">

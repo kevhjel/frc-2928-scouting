@@ -36,10 +36,10 @@ export const listUsers = query({
 });
 
 export const ensureProfile = mutation({
-  args: { displayName: v.string() },
+  args: { displayName: v.optional(v.string()) },
   handler: async (ctx, { displayName }) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Unauthenticated");
+    if (!userId) return;
     const existing = await ctx.db
       .query("userProfiles")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -47,9 +47,11 @@ export const ensureProfile = mutation({
     if (!existing) {
       const allProfiles = await ctx.db.query("userProfiles").collect();
       const role = allProfiles.length === 0 ? "admin" : "scout";
+      const user = await ctx.db.get(userId);
+      const fallbackName = (user as any)?.email?.split("@")[0] ?? "User";
       await ctx.db.insert("userProfiles", {
         userId,
-        displayName,
+        displayName: displayName || fallbackName,
         role,
       });
     }
