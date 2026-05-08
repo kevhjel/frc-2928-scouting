@@ -108,7 +108,7 @@ function SortableTeamRow({
       <div
         {...attributes}
         {...listeners}
-        className="text-slate-600 cursor-grab active:cursor-grabbing px-1 select-none"
+        className="text-slate-500 cursor-grab active:cursor-grabbing select-none flex items-center self-stretch px-2 -mx-1 touch-none"
       >
         ⠿
       </div>
@@ -181,7 +181,7 @@ function ConsensusRow({
         <div
           {...attributes}
           {...listeners}
-          className="text-slate-600 cursor-grab active:cursor-grabbing px-1 select-none"
+          className="text-slate-500 cursor-grab active:cursor-grabbing select-none flex items-center self-stretch px-2 -mx-1 touch-none"
         >
           ⠿
         </div>
@@ -665,7 +665,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
   );
 
   const teamDataMap = useMemo<Map<number, TeamData>>(() => {

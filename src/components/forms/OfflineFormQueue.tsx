@@ -21,7 +21,7 @@ export default function OfflineFormQueue() {
 
   return (
     <div
-      className={`fixed top-14 left-0 right-0 z-30 border-b px-4 py-2 flex items-center justify-between text-sm ${
+      className={`w-full border-b px-4 py-2 flex items-center justify-between text-sm shrink-0 ${
         isOnline
           ? "bg-yellow-900/90 border-yellow-700"
           : "bg-orange-950/90 border-orange-800"
