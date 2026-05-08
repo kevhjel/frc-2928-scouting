@@ -296,10 +296,10 @@ export default function PitScoutPage() {
                         <img
                           src={photoUrl}
                           alt=""
-                          className="w-60 h-60 rounded-lg object-cover bg-slate-700 mb-1"
+                          className="w-full aspect-square rounded-lg object-cover bg-slate-700 mb-1"
                         />
                       ) : (
-                        <div className="w-60 h-60 rounded-lg bg-slate-700 flex items-center justify-center text-xl mb-1">
+                        <div className="w-full aspect-square rounded-lg bg-slate-700 flex items-center justify-center text-xl mb-1">
                           🤖
                         </div>
                       )}

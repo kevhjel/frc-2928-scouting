@@ -91,11 +91,11 @@ export default function DataPage() {
     }
   }
 
-  function SortHeader({ label, k }: { label: string; k: SortKey }) {
+  function SortHeader({ label, k, className = "" }: { label: string; k: SortKey; className?: string }) {
     const active = sortKey === k;
     return (
       <th
-        className="px-3 py-2 text-left text-xs font-medium text-slate-400 cursor-pointer hover:text-slate-200 whitespace-nowrap select-none"
+        className={`px-3 py-2 text-left text-xs font-medium text-slate-400 cursor-pointer hover:text-slate-200 whitespace-nowrap select-none ${className}`}
         onClick={() => toggleSort(k)}
       >
         {label} {active ? (sortAsc ? "↑" : "↓") : ""}
@@ -188,8 +188,8 @@ export default function DataPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-900 sticky top-0 z-10">
               <tr>
-                <th className="px-3 py-2 w-40" />
-                <SortHeader label="Team" k="teamNumber" />
+                <th className="hidden sm:table-cell px-3 py-2 w-40" />
+                <SortHeader label="Team" k="teamNumber" className="sticky left-0 z-20 bg-slate-900" />
                 <SortHeader label="OPR" k="opr" />
                 <SortHeader label="EPA" k="epa" />
                 <SortHeader label="Avg Match Balls" k="avgMatchBalls" />
@@ -209,7 +209,7 @@ export default function DataPage() {
                     className="border-b border-slate-800/50 hover:bg-slate-800/30 cursor-pointer"
                     onClick={() => navigate(`/team/${t.teamNumber}`)}
                   >
-                    <td className="pl-3 py-2 w-40">
+                    <td className="hidden sm:table-cell pl-3 py-2 w-40">
                       {(t.robotPhotoUrl ?? t.pitPhotoUrl) ? (
                         <img
                           src={(t.robotPhotoUrl ?? t.pitPhotoUrl)!}
@@ -220,7 +220,7 @@ export default function DataPage() {
                         <div className="w-40 h-40 rounded bg-slate-800 flex items-center justify-center text-slate-600 text-xs">🤖</div>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 font-medium text-slate-200">
+                    <td className="sticky left-0 z-10 bg-slate-950 px-3 py-2.5 font-medium text-slate-200">
                       <div>{t.teamNumber}</div>
                       <div className="text-xs text-slate-500 truncate max-w-[100px]">{t.nickname}</div>
                     </td>

@@ -116,7 +116,7 @@ function TeamCard({
     <div className={`rounded-lg border ${borderColor} ${bgColor} p-3 space-y-2`}>
       {/* Header: photo + name — click to toggle pit question */}
       <button
-        className="flex items-center gap-5 w-full text-left"
+        className="flex items-center gap-2 sm:gap-5 w-full text-left"
         onClick={() => setShowPitQ((v) => !v)}
         title="Click to ask pit crew a question"
       >
@@ -124,18 +124,18 @@ function TeamCard({
           <img
             src={team.robotPhotoUrl}
             alt={`Team ${team.teamNumber}`}
-            className="w-48 h-48 rounded-lg object-cover shrink-0 bg-slate-800"
+            className="w-24 h-24 sm:w-40 sm:h-40 rounded-lg object-cover shrink-0 bg-slate-800"
           />
         ) : (
           <div
-            className={`w-48 h-48 rounded-lg shrink-0 flex items-center justify-center text-2xl font-bold ${placeholderBg}`}
+            className={`w-24 h-24 sm:w-40 sm:h-40 rounded-lg shrink-0 flex items-center justify-center text-lg sm:text-2xl font-bold ${placeholderBg}`}
           >
             {team.teamNumber}
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-slate-100 text-2xl">{team.teamNumber}</p>
-          <p className="text-xl text-slate-400 truncate">{team.nickname}</p>
+          <p className="font-semibold text-slate-100 text-lg sm:text-2xl">{team.teamNumber}</p>
+          <p className="text-sm sm:text-xl text-slate-400 truncate">{team.nickname}</p>
           <div className="flex gap-3 mt-1 flex-wrap">
             {team.opr !== null && (
               <span className="text-base text-slate-500">OPR {team.opr.toFixed(1)}</span>
