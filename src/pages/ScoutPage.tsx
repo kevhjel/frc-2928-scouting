@@ -210,21 +210,34 @@ export default function ScoutPage() {
       clientId: crypto.randomUUID(),
     };
     const queued = enqueue("match", payload);
-    try {
-      await submitEntry(payload);
-      dequeue(queued.id);
-      // Apply selected tags as team flags
-      for (const tag of selectedTags) {
-        await addFlag({ eventKey: event.eventKey, teamNumber: Number(teamNumber), tag });
-      }
-      setSubmitted(true);
-    } catch {
-      // Offline: data is queued in localStorage; reset form so scout can continue
+
+    if (!navigator.onLine) {
+      // Offline: data is safely queued — return to assignment list immediately
       setMatchKey("");
       setTeamNumber("");
       setSelectedTags([]);
       setCustomTagInput("");
+      return;
     }
+
+    // Online: show success screen immediately, then submit in background.
+    // Convex doesn't reject when offline — it hangs until reconnection — so we
+    // must not await the mutation for UX decisions. clientId guarantees no
+    // duplicates if the background call retries via useOfflineQueue.
+    const tagsToApply = [...selectedTags];
+    setSubmitted(true);
+    submitEntry(payload)
+      .then(() => {
+        dequeue(queued.id);
+        return Promise.all(
+          tagsToApply.map((tag) =>
+            addFlag({ eventKey: event.eventKey, teamNumber: Number(teamNumber), tag })
+          )
+        );
+      })
+      .catch(() => {
+        // Connection dropped after submit — item stays in queue for auto-retry
+      });
   }
 
   function toggleTag(tag: string) {
