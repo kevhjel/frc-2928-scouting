@@ -18,10 +18,19 @@ export const submitMatchEntry = mutation({
     data: entryDataValidator,
     notes: v.optional(v.string()),
     isOfflineEntry: v.optional(v.boolean()),
+    clientId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthenticated");
+    // Idempotency: if this clientId was already inserted, return the existing id
+    if (args.clientId) {
+      const existing = await ctx.db
+        .query("matchScoutingEntries")
+        .withIndex("by_clientId", (q) => q.eq("clientId", args.clientId))
+        .unique();
+      if (existing) return existing._id;
+    }
     return ctx.db.insert("matchScoutingEntries", {
       ...args,
       scoutUserId: userId,
@@ -62,6 +71,47 @@ export const deleteMatchEntry = mutation({
       .unique();
     if (myProfile?.role !== "admin") throw new Error("Unauthorized");
     await ctx.db.delete(id);
+  },
+});
+
+export const purgeExactDuplicates = mutation({
+  args: { eventKey: v.string() },
+  handler: async (ctx, { eventKey }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthenticated");
+    const myProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (myProfile?.role !== "admin") throw new Error("Unauthorized");
+
+    const entries = await ctx.db
+      .query("matchScoutingEntries")
+      .withIndex("by_eventKey", (q) => q.eq("eventKey", eventKey))
+      .collect();
+
+    const groups = new Map<string, typeof entries>();
+    for (const e of entries) {
+      const key = `${e.matchKey}:${e.teamNumber}`;
+      const group = groups.get(key) ?? [];
+      group.push(e);
+      groups.set(key, group);
+    }
+
+    let deleted = 0;
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      const firstData = JSON.stringify(group[0].data);
+      const allIdentical = group.every((e) => JSON.stringify(e.data) === firstData);
+      if (!allIdentical) continue;
+      // Keep the earliest submission, delete the rest
+      const sorted = [...group].sort((a, b) => a.submittedAt - b.submittedAt);
+      for (const e of sorted.slice(1)) {
+        await ctx.db.delete(e._id);
+        deleted++;
+      }
+    }
+    return { deleted };
   },
 });
 

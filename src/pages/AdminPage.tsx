@@ -793,42 +793,120 @@ function RawDataTab() {
   );
   const users = useQuery(api.users.listUsers);
   const deleteEntry = useMutation(api.matchScouting.deleteMatchEntry);
+  const purgeExactDuplicates = useMutation(api.matchScouting.purgeExactDuplicates);
+  const [purging, setPurging] = useState(false);
 
   if (!event) return <p className="text-slate-400 text-sm">No active event.</p>;
   if (!entries || !users) return <Spinner />;
 
   const userMap = new Map((users as any[]).map((u: any) => [u.userId, u.displayName]));
 
+  // Group entries by matchKey:teamNumber to detect duplicates
+  const groups = new Map<string, typeof entries>();
+  for (const e of entries) {
+    const key = `${e.matchKey}:${e.teamNumber}`;
+    const group = groups.get(key) ?? [];
+    group.push(e);
+    groups.set(key, group);
+  }
+
+  // exactDupIds: ids of entries that are exact duplicates (same data), excluding the one to keep
+  // conflictKeys: matchKey:teamNumber combos with differing data
+  const exactDupIds = new Set<string>();
+  const conflictKeys = new Set<string>();
+  for (const [key, group] of groups) {
+    if (group.length < 2) continue;
+    const firstData = JSON.stringify(group[0].data);
+    const allIdentical = group.every((e) => JSON.stringify(e.data) === firstData);
+    if (allIdentical) {
+      const sorted = [...group].sort((a, b) => a.submittedAt - b.submittedAt);
+      for (const e of sorted.slice(1)) exactDupIds.add(e._id);
+    } else {
+      conflictKeys.add(key);
+    }
+  }
+
+  async function handlePurge() {
+    if (!event) return;
+    setPurging(true);
+    try {
+      const result = await purgeExactDuplicates({ eventKey: event.eventKey });
+      alert(`Purged ${result.deleted} exact duplicate${result.deleted === 1 ? "" : "s"}.`);
+    } finally {
+      setPurging(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <p className="text-xs text-slate-500">{entries.length} entries</p>
+
+      {/* Duplicate summary banners */}
+      {exactDupIds.size > 0 && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-amber-950/60 border border-amber-700/50 text-sm">
+          <span className="text-amber-300">
+            {exactDupIds.size} exact duplicate{exactDupIds.size === 1 ? "" : "s"} detected (identical data)
+          </span>
+          <button
+            type="button"
+            onClick={handlePurge}
+            disabled={purging}
+            className="shrink-0 text-xs text-amber-200 hover:text-white transition-colors px-2 py-1 rounded border border-amber-700 hover:border-amber-500 disabled:opacity-50"
+          >
+            {purging ? "Purging…" : `Purge ${exactDupIds.size}`}
+          </button>
+        </div>
+      )}
+      {conflictKeys.size > 0 && (
+        <div className="px-3 py-2 rounded-lg bg-red-950/60 border border-red-700/50 text-sm text-red-300">
+          ⚠ {conflictKeys.size} match/robot combo{conflictKeys.size === 1 ? "" : "s"} have conflicting data — review below
+        </div>
+      )}
+
       <Card padding={false}>
         {entries.length === 0 && (
           <p className="px-4 py-3 text-sm text-slate-500">No entries yet.</p>
         )}
-        {entries.map((e) => (
-          <div key={e._id} className="flex items-center justify-between px-4 py-3 border-b border-slate-800/50 last:border-b-0 gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-slate-200 font-medium">
-                {e.matchKey.split("_").pop()?.toUpperCase()} — Team {e.teamNumber}
-              </p>
-              <p className="text-xs text-slate-500">
-                {e.alliance.toUpperCase()} {e.alliancePosition} · {userMap.get(e.scoutUserId) ?? "Unknown"}
-              </p>
+        {entries.map((e) => {
+          const key = `${e.matchKey}:${e.teamNumber}`;
+          const isExactDup = exactDupIds.has(e._id);
+          const isConflict = conflictKeys.has(key);
+          return (
+            <div key={e._id} className="flex items-center justify-between px-4 py-3 border-b border-slate-800/50 last:border-b-0 gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-slate-200 font-medium">
+                  {e.matchKey.split("_").pop()?.toUpperCase()} — Team {e.teamNumber}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {e.alliance.toUpperCase()} {e.alliancePosition} · {userMap.get(e.scoutUserId) ?? "Unknown"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {isExactDup && (
+                  <span className="text-xs text-amber-400 border border-amber-800 rounded px-1.5 py-0.5">
+                    duplicate
+                  </span>
+                )}
+                {isConflict && (
+                  <span className="text-xs text-red-400 border border-red-800 rounded px-1.5 py-0.5">
+                    ⚠ conflict
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(`Delete entry for Team ${e.teamNumber} in ${e.matchKey}?`)) {
+                      deleteEntry({ id: e._id });
+                    }
+                  }}
+                  className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 rounded border border-red-900 hover:border-red-700"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm(`Delete entry for Team ${e.teamNumber} in ${e.matchKey}?`)) {
-                  deleteEntry({ id: e._id });
-                }
-              }}
-              className="shrink-0 text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 rounded border border-red-900 hover:border-red-700"
-            >
-              Delete
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </Card>
     </div>
   );

@@ -9,11 +9,11 @@ function Shell() {
   return (
     <div className="flex flex-col h-screen">
       <TopBar />
-      <OfflineFormQueue />
       <main className="flex-1 overflow-y-auto min-h-0">
         <Outlet />
       </main>
       {!hideNav && <BottomNav />}
+      <OfflineFormQueue />
     </div>
   );
 }

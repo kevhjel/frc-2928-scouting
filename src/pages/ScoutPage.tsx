@@ -199,6 +199,7 @@ export default function ScoutPage() {
       alliance,
       alliancePosition: position,
       data,
+      clientId: crypto.randomUUID(),
     };
     const queued = enqueue("match", payload);
     try {

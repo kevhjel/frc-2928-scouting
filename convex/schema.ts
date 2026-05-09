@@ -118,12 +118,14 @@ export default defineSchema({
     notes: v.optional(v.string()),
     submittedAt: v.number(),
     isOfflineEntry: v.optional(v.boolean()),
+    clientId: v.optional(v.string()),
   })
     .index("by_eventKey", ["eventKey"])
     .index("by_eventKey_teamNumber", ["eventKey", "teamNumber"])
     .index("by_eventKey_matchKey", ["eventKey", "matchKey"])
     .index("by_scoutUser", ["scoutUserId"])
-    .index("by_matchKey_teamNumber", ["matchKey", "teamNumber"]),
+    .index("by_matchKey_teamNumber", ["matchKey", "teamNumber"])
+    .index("by_clientId", ["clientId"]),
 
   pitScoutingEntries: defineTable({
     eventKey: v.string(),
