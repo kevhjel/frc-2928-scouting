@@ -96,6 +96,8 @@ export default function ScoutPage() {
   const [submitted, setSubmitted] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState("");
+  const [practiceMatchNum, setPracticeMatchNum] = useState("1");
+  const [practiceAlliance, setPracticeAlliance] = useState<Alliance>("red");
 
   const { setHasUnsavedData } = useNavVisibility();
   useEffect(() => {
@@ -191,13 +193,19 @@ export default function ScoutPage() {
 
   async function handleSubmit(data: EntryData) {
     if (!event || !config || !matchKey || !teamNumber) return;
+    const isPractice = matchKey === "__practice__";
+    const effectiveMatchKey = isPractice
+      ? `${event.eventKey}_practice_${practiceMatchNum}`
+      : matchKey;
+    const effectiveAlliance = isPractice ? practiceAlliance : alliance;
+    const effectivePosition: Position = isPractice ? 1 : position;
     const payload = {
       eventKey: event.eventKey,
-      matchKey,
+      matchKey: effectiveMatchKey,
       teamNumber: Number(teamNumber),
       configId: config._id,
-      alliance,
-      alliancePosition: position,
+      alliance: effectiveAlliance,
+      alliancePosition: effectivePosition,
       data,
       clientId: crypto.randomUUID(),
     };
@@ -211,7 +219,11 @@ export default function ScoutPage() {
       }
       setSubmitted(true);
     } catch {
-      setSubmitted(true);
+      // Offline: data is queued in localStorage; reset form so scout can continue
+      setMatchKey("");
+      setTeamNumber("");
+      setSelectedTags([]);
+      setCustomTagInput("");
     }
   }
 
@@ -237,7 +249,7 @@ export default function ScoutPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div>
       <div className="p-4 space-y-3 border-b border-slate-800 bg-slate-950">
         {/* Match selector — dropdown with coverage-colored border */}
         <div>
@@ -261,6 +273,7 @@ export default function ScoutPage() {
                 className={`w-full bg-slate-800 border ${borderClass} rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none transition-colors`}
               >
                 <option value="">Choose match…</option>
+                <option value="__practice__">Practice match</option>
                 {sortedMatches.map((m) => {
                   const c = matchCoverageMap.get(m.matchKey) ?? 0;
                   const prefix = c === 0 ? "" : c < 6 ? "⚠ " : "✓ ";
@@ -275,8 +288,59 @@ export default function ScoutPage() {
           })()}
         </div>
 
+        {/* Practice match mini-form */}
+        {matchKey === "__practice__" && (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-xs text-slate-400 mb-1">Practice #</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={practiceMatchNum}
+                  onChange={(e) => setPracticeMatchNum(e.target.value || "1")}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-slate-400 mb-1">Team #</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 2928"
+                  value={teamNumber}
+                  onChange={(e) => setTeamNumber(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Alliance</label>
+              <div className="flex gap-2">
+                {(["red", "blue"] as Alliance[]).map((al) => (
+                  <button
+                    key={al}
+                    type="button"
+                    onClick={() => setPracticeAlliance(al)}
+                    className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                      practiceAlliance === al
+                        ? al === "red"
+                          ? "bg-red-600 border-red-500 text-white"
+                          : "bg-blue-600 border-blue-500 text-white"
+                        : al === "red"
+                          ? "bg-red-900/30 border-red-800 text-red-200 hover:bg-red-900/50"
+                          : "bg-blue-900/30 border-blue-800 text-blue-200 hover:bg-blue-900/50"
+                    }`}
+                  >
+                    {al.charAt(0).toUpperCase() + al.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* All 6 teams — color-coded by alliance */}
-        {matchKey && (
+        {matchKey && matchKey !== "__practice__" && (
           <div>
             <label className="block text-xs text-slate-400 mb-1">Team</label>
             <div className="space-y-1.5">
@@ -319,26 +383,6 @@ export default function ScoutPage() {
                   </div>
                 </div>
               ))}
-              {/* Other input */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 w-8 shrink-0">Other</span>
-                <input
-                  type="number"
-                  placeholder="Team #…"
-                  value={
-                    !redTeams.includes(Number(teamNumber)) &&
-                    !blueTeams.includes(Number(teamNumber))
-                      ? teamNumber
-                      : ""
-                  }
-                  onChange={(e) => {
-                    setTeamNumber(e.target.value);
-                    setAlliance("red");
-                    setPosition(1);
-                  }}
-                  className="w-24 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
-                />
-              </div>
             </div>
           </div>
         )}
@@ -415,7 +459,7 @@ export default function ScoutPage() {
           }}
         />
       ) : (
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="p-4 space-y-2">
           {allAssignments && allAssignments.length > 0 ? (
             <>
               <p className="text-xs text-slate-400 font-medium mb-2">

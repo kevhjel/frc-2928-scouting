@@ -44,14 +44,14 @@ export default function DynamicScoutingForm({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div>
       {/* Section tabs + submit */}
-      <div className="flex gap-1 px-2 py-2 bg-slate-900 border-b border-slate-800">
+      <div className="sticky top-0 z-10 flex gap-1 px-2 py-2 bg-slate-900 border-b border-slate-800">
         {sections.map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 py-1.5 rounded-lg text-[10px] leading-tight font-medium transition-colors ${
               activeSection === section
                 ? "bg-blue-600 text-white"
                 : "bg-slate-800 text-slate-400 hover:text-slate-200"
@@ -63,14 +63,14 @@ export default function DynamicScoutingForm({
         <button
           onClick={handleSubmit}
           disabled={submitting}
-          className="flex-shrink-0 px-3 py-2.5 rounded-lg text-xs font-semibold bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white transition-colors"
+          className="flex-shrink-0 px-4 py-1.5 rounded-lg text-xs font-semibold bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white transition-colors"
         >
-          {submitting ? "…" : "✓"}
+          {submitting ? "…" : "Submit"}
         </button>
       </div>
 
       {/* Fields */}
-      <div className="flex-1 overflow-y-auto px-4">
+      <div className="px-4 pb-4">
         {sectionFields.length === 0 && !sectionExtras?.[activeSection] ? (
           <p className="text-slate-500 text-sm py-8 text-center">
             No fields in this section.

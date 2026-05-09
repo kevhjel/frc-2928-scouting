@@ -878,7 +878,7 @@ function RawDataTab() {
                   {e.matchKey.split("_").pop()?.toUpperCase()} — Team {e.teamNumber}
                 </p>
                 <p className="text-xs text-slate-500">
-                  {e.alliance.toUpperCase()} {e.alliancePosition} · {userMap.get(e.scoutUserId) ?? "Unknown"}
+                  {e.alliance.toUpperCase()} {e.alliancePosition} · {userMap.get(e.scoutUserId) ?? "Unknown"} · {new Date(e.submittedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">

@@ -10,12 +10,13 @@ import {
 
 export function useOfflineQueue() {
   const [queue, setQueue] = useState<QueuedEntry[]>(getQueue);
+  const [lastSyncCount, setLastSyncCount] = useState(0);
   const submitMatch = useMutation(api.matchScouting.submitMatchEntry);
   const submitPit = useMutation(api.pitScouting.submitPitEntry);
 
   const refresh = () => setQueue(getQueue());
 
-  async function retryEntry(entry: QueuedEntry) {
+  async function retryEntry(entry: QueuedEntry): Promise<boolean> {
     try {
       if (entry.type === "match") {
         await submitMatch(entry.payload);
@@ -23,18 +24,28 @@ export function useOfflineQueue() {
         await submitPit(entry.payload);
       }
       dequeue(entry.id);
+      return true;
     } catch {
       incrementRetry(entry.id);
+      return false;
+    } finally {
+      refresh();
     }
-    refresh();
   }
 
   async function retryAll() {
     if (!navigator.onLine) return;
     const current = getQueue();
+    let succeeded = 0;
     for (const entry of current) {
-      await retryEntry(entry);
+      const ok = await retryEntry(entry);
+      if (ok) succeeded++;
     }
+    if (succeeded > 0) setLastSyncCount(succeeded);
+  }
+
+  function clearSyncCount() {
+    setLastSyncCount(0);
   }
 
   useEffect(() => {
@@ -51,5 +62,5 @@ export function useOfflineQueue() {
     };
   }, []);
 
-  return { queue, retryAll, refresh };
+  return { queue, retryAll, refresh, lastSyncCount, clearSyncCount };
 }
