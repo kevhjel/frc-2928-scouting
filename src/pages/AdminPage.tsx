@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Routes, Route, NavLink, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -1111,6 +1111,232 @@ function ScoutsTab() {
   );
 }
 
+// ── For Ryan Tab (Snake Game) ──────────────────────────────────────────────────
+const CELL = 20;
+const COLS = 20;
+const ROWS = 20;
+const CANVAS_W = CELL * COLS;
+const CANVAS_H = CELL * ROWS;
+
+type Point = { x: number; y: number };
+type Dir = "UP" | "DOWN" | "LEFT" | "RIGHT";
+
+const OPPOSITE: Record<Dir, Dir> = { UP: "DOWN", DOWN: "UP", LEFT: "RIGHT", RIGHT: "LEFT" };
+
+function randomFood(snake: Point[]): Point {
+  const occupied = new Set(snake.map((p) => `${p.x},${p.y}`));
+  let food: Point;
+  do {
+    food = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+  } while (occupied.has(`${food.x},${food.y}`));
+  return food;
+}
+
+function ForRyanTab() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stateRef = useRef({
+    snake: [{ x: 10, y: 10 }] as Point[],
+    dir: "RIGHT" as Dir,
+    nextDir: "RIGHT" as Dir,
+    food: { x: 15, y: 10 } as Point,
+    score: 0,
+    best: 0,
+    running: false,
+    dead: false,
+    started: false,
+  });
+  const [display, setDisplay] = useState({ score: 0, best: 0, dead: false, started: false });
+  const rafRef = useRef<number>(0);
+  const lastTickRef = useRef<number>(0);
+  const SPEED = 130; // ms per tick
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const s = stateRef.current;
+
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // grid
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x <= COLS; x++) {
+      ctx.beginPath(); ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, CANVAS_H); ctx.stroke();
+    }
+    for (let y = 0; y <= ROWS; y++) {
+      ctx.beginPath(); ctx.moveTo(0, y * CELL); ctx.lineTo(CANVAS_W, y * CELL); ctx.stroke();
+    }
+
+    // food
+    ctx.fillStyle = "#ef4444";
+    ctx.beginPath();
+    ctx.arc(s.food.x * CELL + CELL / 2, s.food.y * CELL + CELL / 2, CELL / 2 - 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // snake
+    s.snake.forEach((seg: Point, i: number) => {
+      const ratio = 1 - i / s.snake.length;
+      ctx.fillStyle = i === 0 ? "#22c55e" : `hsl(${142 - ratio * 30}, 70%, ${30 + ratio * 20}%)`;
+      ctx.beginPath();
+      ctx.roundRect(seg.x * CELL + 1, seg.y * CELL + 1, CELL - 2, CELL - 2, 4);
+      ctx.fill();
+    });
+  }, []);
+
+  const tick = useCallback((now: number) => {
+    const s = stateRef.current;
+    if (!s.running) return;
+    rafRef.current = requestAnimationFrame(tick);
+    if (now - lastTickRef.current < SPEED) { draw(); return; }
+    lastTickRef.current = now;
+
+    s.dir = s.nextDir;
+    const head = s.snake[0];
+    const next: Point = {
+      x: (head.x + (s.dir === "RIGHT" ? 1 : s.dir === "LEFT" ? -1 : 0) + COLS) % COLS,
+      y: (head.y + (s.dir === "DOWN" ? 1 : s.dir === "UP" ? -1 : 0) + ROWS) % ROWS,
+    };
+
+    const hitSelf = s.snake.some((p: Point) => p.x === next.x && p.y === next.y);
+    if (hitSelf) {
+      s.running = false;
+      s.dead = true;
+      s.best = Math.max(s.best, s.score);
+      setDisplay({ score: s.score, best: s.best, dead: true, started: true });
+      draw();
+      return;
+    }
+
+    const ate = next.x === s.food.x && next.y === s.food.y;
+    const newSnake = [next, ...s.snake];
+    if (!ate) newSnake.pop();
+    else {
+      s.score += 10;
+      s.food = randomFood(newSnake);
+    }
+    s.snake = newSnake;
+    setDisplay((d: typeof display) => ({ ...d, score: s.score }));
+    draw();
+  }, [draw]);
+
+  const startGame = useCallback(() => {
+    const s = stateRef.current;
+    const initialSnake = [{ x: 10, y: 10 }];
+    s.snake = initialSnake;
+    s.dir = "RIGHT";
+    s.nextDir = "RIGHT";
+    s.food = randomFood(initialSnake);
+    s.score = 0;
+    s.running = true;
+    s.dead = false;
+    s.started = true;
+    lastTickRef.current = 0;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(tick);
+    setDisplay((d) => ({ ...d, score: 0, dead: false, started: true }));
+  }, [tick]);
+
+  useEffect(() => {
+    draw();
+    const handleKey = (e: KeyboardEvent) => {
+      const s = stateRef.current;
+      const map: Record<string, Dir> = {
+        ArrowUp: "UP", w: "UP", W: "UP",
+        ArrowDown: "DOWN", s: "DOWN", S: "DOWN",
+        ArrowLeft: "LEFT", a: "LEFT", A: "LEFT",
+        ArrowRight: "RIGHT", d: "RIGHT", D: "RIGHT",
+      };
+      const newDir = map[e.key];
+      if (newDir && newDir !== OPPOSITE[s.dir as Dir]) {
+        e.preventDefault();
+        s.nextDir = newDir;
+        if (!s.running && !s.dead) startGame();
+      }
+      if ((e.key === " " || e.key === "Enter") && (!s.running || s.dead)) startGame();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, [draw, startGame]);
+
+  // touch swipe
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    const s = stateRef.current;
+    let newDir: Dir | null = null;
+    if (Math.abs(dx) > Math.abs(dy)) newDir = dx > 0 ? "RIGHT" : "LEFT";
+    else newDir = dy > 0 ? "DOWN" : "UP";
+    if (newDir && newDir !== OPPOSITE[s.dir as Dir]) s.nextDir = newDir;
+    if (!s.running && !s.dead) startGame();
+    touchStart.current = null;
+  };
+
+  const dpadBtn = (dir: Dir, label: string) => (
+    <button
+      className="w-12 h-12 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 rounded-lg text-white text-lg font-bold select-none touch-none"
+      onPointerDown={(e) => { e.preventDefault(); const s = stateRef.current; if (dir !== OPPOSITE[s.dir as Dir]) s.nextDir = dir; if (!s.running && !s.dead) startGame(); }}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="flex flex-col items-center gap-4 py-2">
+      <div className="text-center">
+        <h2 className="text-xl font-bold text-white">For Ryan</h2>
+        <p className="text-slate-400 text-sm">a gift from the scouting app</p>
+      </div>
+
+      <div className="flex gap-6 text-center">
+        <div><div className="text-2xl font-bold text-green-400">{display.score}</div><div className="text-xs text-slate-500 uppercase tracking-wide">Score</div></div>
+        <div><div className="text-2xl font-bold text-yellow-400">{display.best}</div><div className="text-xs text-slate-500 uppercase tracking-wide">Best</div></div>
+      </div>
+
+      <div className="relative" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_W}
+          height={CANVAS_H}
+          className="rounded-lg border border-slate-700 max-w-full"
+          style={{ imageRendering: "pixelated", maxWidth: "min(400px, 95vw)", maxHeight: "min(400px, 95vw)", width: CANVAS_W, height: CANVAS_H }}
+        />
+        {!display.started && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 rounded-lg gap-3">
+            <div className="text-4xl">🐍</div>
+            <div className="text-white font-bold text-lg">Snake</div>
+            <button onClick={startGame} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-full font-semibold transition-colors">Play</button>
+            <div className="text-slate-400 text-xs">Arrow keys / WASD or swipe</div>
+          </div>
+        )}
+        {display.dead && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 rounded-lg gap-3">
+            <div className="text-3xl">💀</div>
+            <div className="text-white font-bold text-lg">Game Over</div>
+            <div className="text-slate-300 text-sm">Score: {display.score}</div>
+            <button onClick={startGame} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-full font-semibold transition-colors">Play Again</button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col items-center gap-1 md:hidden">
+        <div>{dpadBtn("UP", "▲")}</div>
+        <div className="flex gap-1">{dpadBtn("LEFT", "◀")}{dpadBtn("DOWN", "▼")}{dpadBtn("RIGHT", "▶")}</div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main AdminPage ─────────────────────────────────────────────────────────────
 const tabs = [
   { path: "event", label: "Event" },
@@ -1120,6 +1346,7 @@ const tabs = [
   { path: "rawdata", label: "Raw Data" },
   { path: "export", label: "Export" },
   { path: "scouts", label: "Scouts" },
+  { path: "forryan", label: "For Ryan" },
 ];
 
 export default function AdminPage() {
@@ -1151,6 +1378,7 @@ export default function AdminPage() {
           <Route path="rawdata" element={<RawDataTab />} />
           <Route path="export" element={<ExportTab />} />
           <Route path="scouts" element={<ScoutsTab />} />
+          <Route path="forryan" element={<ForRyanTab />} />
           <Route path="*" element={<EventTab />} />
         </Routes>
       </div>
