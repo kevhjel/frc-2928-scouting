@@ -16,6 +16,7 @@ interface Props {
   alliance?: "red" | "blue";
   labelA?: string;
   labelB?: string;
+  height?: number;
 }
 
 function OffenseTooltip({ active, payload, label }: TooltipProps<number, string>) {
@@ -36,7 +37,7 @@ const SUBJECTS = ["Auto Balls", "Tele Balls", "Fed Balls", "EPA"] as const;
 const KEYS: (keyof NormalizedOffenseMetrics)[] = ["autoBalls", "teleBalls", "fedBalls", "epa"];
 const RAW_KEYS: (keyof NormalizedOffenseMetrics)[] = ["rawAutoBalls", "rawTeleBalls", "rawFedBalls", "rawEpa"];
 
-export default function OffenseRadarChart({ metrics, metricsB, alliance = "red", labelA, labelB }: Props) {
+export default function OffenseRadarChart({ metrics, metricsB, alliance = "red", labelA, labelB, height = 260 }: Props) {
   const colorA = alliance === "red" ? "#ef4444" : "#3b82f6";
   const colorB = "#3b82f6";
 
@@ -50,7 +51,7 @@ export default function OffenseRadarChart({ metrics, metricsB, alliance = "red",
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={height}>
       <RadarChart data={data} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
         <PolarGrid stroke="#334155" />
         <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 11 }} />

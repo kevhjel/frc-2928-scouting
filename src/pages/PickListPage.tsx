@@ -1098,15 +1098,18 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
 
           function TeamPanel({ num, stats, td }: { num: number; stats: any; td: TeamData | undefined }) {
             return (
-              <div className="flex flex-col items-center gap-2 text-center">
+              <button
+                onClick={() => setPreviewTeam(num)}
+                className="flex flex-col items-center gap-1.5 text-center w-full cursor-pointer hover:bg-slate-800/50 rounded-lg p-1 transition-colors"
+              >
                 {td?.photoUrl ? (
-                  <img src={td.photoUrl} alt="" className="w-32 h-32 object-cover rounded-lg bg-slate-800" />
+                  <img src={td.photoUrl} alt="" className="w-20 h-20 object-cover rounded-lg bg-slate-800" />
                 ) : (
-                  <div className="w-32 h-32 rounded-lg bg-slate-800 flex items-center justify-center text-4xl">🤖</div>
+                  <div className="w-20 h-20 rounded-lg bg-slate-800 flex items-center justify-center text-3xl">🤖</div>
                 )}
-                <p className="text-lg font-bold text-slate-100">{num}</p>
-                <p className="text-xs text-slate-400">{stats?.nickname ?? ""}</p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs mt-1">
+                <p className="text-base font-bold text-slate-100">{num}</p>
+                <p className="text-xs text-slate-400 leading-tight">{stats?.nickname ?? ""}</p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs mt-0.5">
                   <span className="text-slate-500 text-right">OPR</span>
                   <span className="text-slate-200">{stats?.opr?.toFixed(1) ?? "—"}</span>
                   <span className="text-slate-500 text-right">EPA</span>
@@ -1121,7 +1124,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
                     <FlagBadges flags={flagsByTeam.get(num)} />
                   </div>
                 )}
-              </div>
+              </button>
             );
           }
 
@@ -1159,6 +1162,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
                       labelA={`Team ${numA}`}
                       labelB={`Team ${numB}`}
                       fields={config.matchFields as any}
+                      height={180}
                     />
                     <OffenseRadarChart
                       metrics={om[numA]}
@@ -1166,15 +1170,16 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
                       alliance="red"
                       labelA={`Team ${numA}`}
                       labelB={`Team ${numB}`}
+                      height={180}
                     />
                   </>
                 );
               })()}
               <p className="text-center text-sm text-slate-400">Which robot should rank higher?</p>
               <div className="grid grid-cols-3 gap-3">
-                <Button onClick={() => handleRankPick(numA)} className="w-full">← Team {numA}</Button>
+                <Button onClick={() => handleRankPick(numA)} className="w-full">{numA} is better</Button>
                 <Button variant="ghost" size="sm" onClick={handleRankSkipOrStop} className="w-full">Skip</Button>
-                <Button onClick={() => handleRankPick(numB)} className="w-full">Team {numB} →</Button>
+                <Button onClick={() => handleRankPick(numB)} className="w-full">{numB} is better</Button>
               </div>
               <div className="text-center">
                 <button

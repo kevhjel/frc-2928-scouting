@@ -32,6 +32,7 @@ interface Props {
   labelB?: string;
   fields: ScoutingField[];
   color?: string;
+  height?: number;
 }
 
 const RADAR_FIELD_IDS = [
@@ -42,7 +43,7 @@ const RADAR_FIELD_IDS = [
   "tele_defense_handling",
 ];
 
-export default function TeamRadarChart({ stats, statsB, labelA, labelB, fields, color }: Props) {
+export default function TeamRadarChart({ stats, statsB, labelA, labelB, fields, color, height = 260 }: Props) {
   const primaryColor = color ?? "#ef4444";
   const radarFields = RADAR_FIELD_IDS.map((id) => fields.find((f) => f.id === id)).filter(Boolean) as typeof fields;
 
@@ -57,7 +58,7 @@ export default function TeamRadarChart({ stats, statsB, labelA, labelB, fields, 
   if (data.length < 3) return null;
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={height}>
       <RadarChart data={data} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
         <PolarGrid stroke="#334155" />
         <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 11 }} />
