@@ -345,12 +345,17 @@ export default function PitScoutPage() {
               )}
             </div>
 
-            {/* Existing photos strip */}
+            {/* Existing photos */}
             {validPhotoUrls.length > 0 && (
-              <div>
-                <p className="text-xs text-slate-400 mb-2">
-                  Photos ({validPhotoUrls.length})
-                </p>
+              <div className="space-y-2">
+                {/* Featured large photo */}
+                <img
+                  src={validPhotoUrls[0]}
+                  alt="Robot photo"
+                  onClick={() => setLightboxIdx(0)}
+                  className="w-full max-h-64 object-contain rounded-lg bg-slate-800 cursor-pointer hover:opacity-90 transition-opacity"
+                />
+                {/* Thumbnail strip for additional photos */}
                 <div className="flex gap-2 flex-wrap">
                   {validPhotoUrls.map((url, i) => (
                     <div key={i} className="relative group">
@@ -358,7 +363,7 @@ export default function PitScoutPage() {
                         src={url}
                         alt={`Photo ${i + 1}`}
                         onClick={() => setLightboxIdx(i)}
-                        className="w-64 h-64 rounded-lg object-cover bg-slate-800 cursor-pointer hover:opacity-80 transition-opacity"
+                        className="w-16 h-16 rounded-lg object-cover bg-slate-800 cursor-pointer hover:opacity-80 transition-opacity"
                       />
                       <button
                         onClick={() => handleRemovePhoto(existingStorageIds[i])}
