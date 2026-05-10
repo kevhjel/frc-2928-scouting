@@ -686,6 +686,10 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
     event ? { eventKey: event.eventKey } : "skip",
   );
   const allUsers = useQuery(api.users.listUsers);
+  const allPickLists = useQuery(
+    api.pickList.getAllPickLists,
+    event ? { eventKey: event.eventKey } : "skip",
+  );
 
   const upsertList = useMutation(api.pickList.upsertMyPickList);
   const setReadyMutation = useMutation(api.pickList.setPickListReady);
@@ -964,16 +968,18 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
       title={`DNP Flags — Team ${dnpPopupTeam}`}
     >
       <div className="space-y-2">
-        {(allFlags ?? [])
-          .filter((f) => f.teamNumber === dnpPopupTeam && f.tag === "DNP")
-          .map((f, i) => (
+        {(() => {
+          const scouts = (allPickLists ?? [])
+            .filter((pl: any) => pl.rankedTeams.some((t: any) => t.teamNumber === dnpPopupTeam && t.dnp))
+            .map((pl: any) => userDisplayMap.get(pl.userId) ?? "Unknown scout");
+          if (scouts.length === 0)
+            return <p className="text-slate-400 text-sm">No DNP flags found.</p>;
+          return scouts.map((name: string, i: number) => (
             <div key={i} className="flex items-center gap-2 text-sm">
-              <span className="text-slate-300">{userDisplayMap.get(f.flaggedBy as string) ?? "Unknown scout"}</span>
+              <span className="text-slate-300">{name}</span>
             </div>
-          ))}
-        {(allFlags ?? []).filter((f) => f.teamNumber === dnpPopupTeam && f.tag === "DNP").length === 0 && (
-          <p className="text-slate-400 text-sm">No DNP flags found.</p>
-        )}
+          ));
+        })()}
       </div>
     </Modal>
   );

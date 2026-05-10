@@ -116,9 +116,6 @@ export const calculateConsensusPickList = action({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthenticated");
 
-    // Sync fresh EPA from Statbotics first
-    await ctx.runAction(api.actions.statboticsSync.syncStatbotics, { eventKey });
-
     const allLists: Array<{ _id: any; isSubmitted: boolean; rankedTeams: Array<{ teamNumber: number; rank: number; dnp?: boolean }> }> =
       await ctx.runQuery(api.pickList.getAllPickLists, { eventKey });
     const readyLists = allLists.filter((l: any) => l.isSubmitted);
