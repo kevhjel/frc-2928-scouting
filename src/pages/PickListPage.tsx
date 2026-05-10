@@ -711,7 +711,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
   const [rankRangeText, setRankRangeText] = useState({ start: "1", end: "10" });
   const [rankMode, setRankMode] = useState<"full" | "neighborhood" | "random" | "mergesort">("full");
   const [neighborhoodK, setNeighborhoodK] = useState(3);
-  const [maxComparisons, setMaxComparisons] = useState(30);
+  const [maxComparisons, setMaxComparisons] = useState("30");
   const [rankPairs, setRankPairs] = useState<Array<[number, number]>>([]);
   const [rankPairIdx, setRankPairIdx] = useState(0);
   const [rankScores, setRankScores] = useState<Map<number, number>>(new Map());
@@ -841,7 +841,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
     const nums = sub.map((t) => t.teamNumber);
     let pairs: Array<[number, number]>;
     if (rankMode === "neighborhood") pairs = generateNeighborhoodPairs(nums, neighborhoodK);
-    else if (rankMode === "random") pairs = generateRandomPairs(nums, maxComparisons);
+    else if (rankMode === "random") pairs = generateRandomPairs(nums, Math.max(1, parseInt(maxComparisons, 10) || 1));
     else if (rankMode === "mergesort") pairs = generateMergeSortPairs(nums);
     else pairs = generatePairs(nums);
     setRankTarget(target);
@@ -1054,7 +1054,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
                 type="text"
                 inputMode="numeric"
                 value={maxComparisons}
-                onChange={(e) => setMaxComparisons(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                onChange={(e) => setMaxComparisons(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -1065,7 +1065,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
             const n = e - s + 1;
             let pairCount: number;
             if (rankMode === "neighborhood") pairCount = Math.max(0, neighborhoodK * n - (neighborhoodK * (neighborhoodK + 1)) / 2);
-            else if (rankMode === "random") pairCount = Math.min(maxComparisons, (n * (n - 1)) / 2);
+            else if (rankMode === "random") pairCount = Math.min(Math.max(1, parseInt(maxComparisons, 10) || 1), (n * (n - 1)) / 2);
             else if (rankMode === "mergesort") pairCount = Math.round(n * Math.ceil(Math.log2(Math.max(n, 2))));
             else pairCount = (n * (n - 1)) / 2;
             return (
@@ -1156,22 +1156,24 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
                 const om = computeOffenseMetrics([rawA, rawB]);
                 return (
                   <>
-                    <TeamRadarChart
-                      stats={sA}
-                      statsB={sB}
-                      labelA={`Team ${numA}`}
-                      labelB={`Team ${numB}`}
-                      fields={config.matchFields as any}
-                      height={180}
-                    />
-                    <OffenseRadarChart
-                      metrics={om[numA]}
-                      metricsB={om[numB]}
-                      alliance="red"
-                      labelA={`Team ${numA}`}
-                      labelB={`Team ${numB}`}
-                      height={180}
-                    />
+                    <div className="grid grid-cols-2 gap-1">
+                      <TeamRadarChart
+                        stats={sA}
+                        statsB={sB}
+                        labelA={`Team ${numA}`}
+                        labelB={`Team ${numB}`}
+                        fields={config.matchFields as any}
+                        height={180}
+                      />
+                      <OffenseRadarChart
+                        metrics={om[numA]}
+                        metricsB={om[numB]}
+                        alliance="red"
+                        labelA={`Team ${numA}`}
+                        labelB={`Team ${numB}`}
+                        height={180}
+                      />
+                    </div>
                   </>
                 );
               })()}
@@ -1315,6 +1317,8 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
           event={event}
           config={config as any}
         />
+        {rankGameModals}
+        {dnpPopupModal}
         {previewTeam !== null && (
           <TeamQuickViewModal
             teamNumber={previewTeam}
@@ -1324,8 +1328,6 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
             onClose={() => setPreviewTeam(null)}
           />
         )}
-        {rankGameModals}
-        {dnpPopupModal}
       </div>
     );
   }
@@ -1429,6 +1431,8 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
         event={event}
         config={config as any}
       />
+      {rankGameModals}
+      {dnpPopupModal}
       {previewTeam !== null && (
         <TeamQuickViewModal
           teamNumber={previewTeam}
@@ -1438,9 +1442,6 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
           onClose={() => setPreviewTeam(null)}
         />
       )}
-
-      {rankGameModals}
-      {dnpPopupModal}
     </div>
   );
 }
