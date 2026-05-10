@@ -358,7 +358,7 @@ export default function PitScoutPage() {
                         src={url}
                         alt={`Photo ${i + 1}`}
                         onClick={() => setLightboxIdx(i)}
-                        className="w-16 h-16 rounded-lg object-cover bg-slate-800 cursor-pointer hover:opacity-80 transition-opacity"
+                        className="w-64 h-64 rounded-lg object-cover bg-slate-800 cursor-pointer hover:opacity-80 transition-opacity"
                       />
                       <button
                         onClick={() => handleRemovePhoto(existingStorageIds[i])}
