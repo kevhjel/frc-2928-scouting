@@ -28,7 +28,18 @@ export default function DynamicScoutingForm({
   const [data, setData] = useState<EntryData>(initialData ?? getDefaultData(fields));
   const [submitting, setSubmitting] = useState(false);
 
-  const sectionFields = fields.filter((f) => f.section === activeSection);
+  const TELEOP_ORDER = ["tele_avg_balls_shot", "tele_shoot_cycles", "tele_shoot_moving", "tele_shoot_accuracy", "tele_avg_balls_fed", "tele_feed_cycles"];
+  const sectionFields = fields
+    .filter((f) => f.section === activeSection && f.id !== "auto_which_mode")
+    .sort((a, b) => {
+      if (activeSection !== "teleop") return 0;
+      const ai = TELEOP_ORDER.indexOf(a.id);
+      const bi = TELEOP_ORDER.indexOf(b.id);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
 
   function handleChange(fieldId: string, value: FieldValue) {
     setData((prev) => ({ ...prev, [fieldId]: value }));

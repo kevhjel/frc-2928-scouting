@@ -28,6 +28,7 @@ import Card from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
 import TeamRadarChart from "../components/charts/TeamRadarChart";
 import OffenseRadarChart from "../components/charts/OffenseRadarChart";
+import TeamNotesSection from "../components/teams/TeamNotesSection";
 import { computeOffenseMetrics } from "../lib/offenseMetrics";
 
 interface RankedTeam {
@@ -572,19 +573,10 @@ function TeamQuickViewModal({
               </div>
             </div>
           )}
-          {entries && entries.length > 0 && (
+          {entries && config && entries.length > 0 && (
             <div>
-              <p className="text-xs text-slate-400 mb-2">Recent Matches ({entries.length})</p>
-              <div className="space-y-1">
-                {entries.slice(0, 5).map((e) => (
-                  <div key={e._id} className="flex items-center gap-2 text-xs">
-                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${e.alliance === "red" ? "bg-red-900/40 text-red-300" : "bg-blue-900/40 text-blue-300"}`}>
-                      {e.matchKey.split("_").pop()?.toUpperCase()}
-                    </span>
-                    {e.notes && <span className="text-slate-400 italic truncate">{e.notes}</span>}
-                  </div>
-                ))}
-              </div>
+              <p className="text-xs text-slate-400 mb-2">Notes</p>
+              <TeamNotesSection entries={entries as any} matchFields={config.matchFields as any} />
             </div>
           )}
         </div>

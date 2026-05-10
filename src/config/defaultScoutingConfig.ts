@@ -44,15 +44,6 @@ export const config2026: ScoutingConfig = {
       higherIsBetter: true,
     },
     {
-      id: "auto_which_mode",
-      label: "Scouting Which Auto Mode",
-      type: "select",
-      options: ["1", "2", "3", "4", "5"],
-      section: "auto",
-      defaultValue: "1",
-      aggregatable: false,
-    },
-    {
       id: "auto_notes",
       label: "Auto Notes",
       type: "text",
@@ -62,15 +53,6 @@ export const config2026: ScoutingConfig = {
 
     // ── TELEOP ────────────────────────────────────────────────────────────────
     {
-      id: "tele_shoot_cycles",
-      label: "Shooting Cycles",
-      type: "counter",
-      section: "teleop",
-      defaultValue: 0,
-      aggregatable: true,
-      higherIsBetter: true,
-    },
-    {
       id: "tele_avg_balls_shot",
       label: "Avg Balls Per Shooting Cycle",
       type: "counter",
@@ -79,6 +61,15 @@ export const config2026: ScoutingConfig = {
       aggregatable: true,
       higherIsBetter: true,
       increment: 5,
+    },
+    {
+      id: "tele_shoot_cycles",
+      label: "Shooting Cycles",
+      type: "counter",
+      section: "teleop",
+      defaultValue: 0,
+      aggregatable: true,
+      higherIsBetter: true,
     },
     {
       id: "tele_shoot_moving",
@@ -99,15 +90,6 @@ export const config2026: ScoutingConfig = {
       higherIsBetter: true,
     },
     {
-      id: "tele_feed_cycles",
-      label: "Feeding Cycles",
-      type: "counter",
-      section: "teleop",
-      defaultValue: 0,
-      aggregatable: true,
-      higherIsBetter: false,
-    },
-    {
       id: "tele_avg_balls_fed",
       label: "Avg Balls Per Feed Cycle",
       type: "counter",
@@ -116,6 +98,15 @@ export const config2026: ScoutingConfig = {
       aggregatable: true,
       higherIsBetter: true,
       increment: 5,
+    },
+    {
+      id: "tele_feed_cycles",
+      label: "Feeding Cycles",
+      type: "counter",
+      section: "teleop",
+      defaultValue: 0,
+      aggregatable: true,
+      higherIsBetter: false,
     },
     {
       id: "tele_defense",

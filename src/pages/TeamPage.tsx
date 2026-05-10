@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { useActiveEvent } from "../hooks/useActiveEvent";
 import { useActiveScoutingConfig } from "../hooks/useScoutingConfig";
 import TeamRadarChart from "../components/charts/TeamRadarChart";
+import TeamNotesSection from "../components/teams/TeamNotesSection";
 import Badge from "../components/ui/Badge";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -245,26 +246,13 @@ export default function TeamPage() {
         </Card>
       )}
 
-      {/* Match notes */}
-      {(() => {
-        const notes = (entries ?? []).filter((e) => e.notes?.trim());
-        if (notes.length === 0) return null;
-        return (
-          <Card>
-            <p className="text-xs text-slate-400 mb-3">Match Notes</p>
-            <div className="space-y-2">
-              {notes.map((e) => (
-                <div key={e._id} className="flex gap-2">
-                  <span className="text-xs text-slate-500 shrink-0">
-                    {e.matchKey.split("_").pop()?.toUpperCase()}
-                  </span>
-                  <p className="text-xs text-slate-300 italic">{e.notes}</p>
-                </div>
-              ))}
-            </div>
-          </Card>
-        );
-      })()}
+      {/* Notes by type */}
+      {entries && config && (
+        <Card>
+          <p className="text-xs text-slate-400 mb-3">Notes</p>
+          <TeamNotesSection entries={entries as any} matchFields={config.matchFields as any} />
+        </Card>
+      )}
 
       {/* Pit questions */}
       {pitQuestions && pitQuestions.length > 0 && (
