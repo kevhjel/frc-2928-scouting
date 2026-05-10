@@ -1096,7 +1096,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
           const tdA = teamDataMap.get(numA);
           const tdB = teamDataMap.get(numB);
 
-          function TeamPanel({ num, stats, td }: { num: number; stats: any; td: TeamData | undefined }) {
+          function TeamPanel({ num, stats, td, color }: { num: number; stats: any; td: TeamData | undefined; color: string }) {
             return (
               <button
                 onClick={() => setPreviewTeam(num)}
@@ -1107,7 +1107,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
                 ) : (
                   <div className="w-20 h-20 rounded-lg bg-slate-800 flex items-center justify-center text-3xl">🤖</div>
                 )}
-                <p className="text-base font-bold text-slate-100">{num}</p>
+                <p className={`text-base font-bold ${color}`}>{num}</p>
                 <p className="text-xs text-slate-400 leading-tight">{stats?.nickname ?? ""}</p>
                 <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs mt-0.5">
                   <span className="text-slate-500 text-right">OPR</span>
@@ -1131,8 +1131,8 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
           return (
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-6">
-                <TeamPanel num={numA} stats={sA} td={tdA} />
-                <TeamPanel num={numB} stats={sB} td={tdB} />
+                <TeamPanel num={numA} stats={sA} td={tdA} color="text-red-400" />
+                <TeamPanel num={numB} stats={sB} td={tdB} color="text-blue-400" />
               </div>
               {sA && sB && config && (() => {
                 const numStatF = (s: typeof sA, id: string) => {
@@ -1179,9 +1179,9 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
               })()}
               <p className="text-center text-sm text-slate-400">Which robot should rank higher?</p>
               <div className="grid grid-cols-3 gap-3">
-                <Button onClick={() => handleRankPick(numA)} className="w-full">{numA} is better</Button>
+                <Button onClick={() => handleRankPick(numA)} className="w-full"><span className="text-red-400">{numA}</span> is better</Button>
                 <Button variant="ghost" size="sm" onClick={handleRankSkipOrStop} className="w-full">Skip</Button>
-                <Button onClick={() => handleRankPick(numB)} className="w-full">{numB} is better</Button>
+                <Button onClick={() => handleRankPick(numB)} className="w-full"><span className="text-blue-400">{numB}</span> is better</Button>
               </div>
               <div className="text-center">
                 <button
