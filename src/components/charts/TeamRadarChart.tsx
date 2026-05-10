@@ -13,8 +13,12 @@ function RadarTooltip({ active, payload, label }: TooltipProps<number, string>) 
   if (!active || !payload?.length) return null;
   return (
     <div style={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", textAlign: "center" }}>
-      <p style={{ color: "#94a3b8", marginBottom: "2px" }}>{label}</p>
-      <p style={{ color: "#e2e8f0", fontWeight: 600 }}>{payload[0]?.value}</p>
+      <p style={{ color: "#94a3b8", marginBottom: "4px" }}>{label}</p>
+      {(payload as any[]).map((p, i) => (
+        <p key={i} style={{ color: p.stroke ?? "#e2e8f0", fontWeight: 600 }}>
+          {p.name}: {p.value ?? "—"}
+        </p>
+      ))}
     </div>
   );
 }

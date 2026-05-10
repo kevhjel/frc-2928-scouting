@@ -101,9 +101,7 @@ function SortableTeamRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 ${
-        team.dnp ? "opacity-40" : ""
-      }`}
+      className="flex items-center gap-2 px-3 py-2 border-b border-slate-800/50"
     >
       <div
         {...attributes}
@@ -155,6 +153,7 @@ function ConsensusRow({
   flags,
   draggable,
   onPreview,
+  onDnpClick,
 }: {
   team: ConsensusTeam;
   rank: number;
@@ -162,6 +161,7 @@ function ConsensusRow({
   flags?: string[];
   draggable: boolean;
   onPreview: (n: number) => void;
+  onDnpClick?: (n: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: team.teamNumber,
@@ -173,9 +173,7 @@ function ConsensusRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 last:border-b-0 ${
-        team.dnpCount > 0 ? "opacity-50" : ""
-      }`}
+      className="flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 last:border-b-0"
     >
       {draggable && (
         <div
@@ -200,7 +198,15 @@ function ConsensusRow({
         )}
         <FlagBadges flags={flags} />
       </div>
-      {team.dnpCount > 0 && <Badge color="red">DNP×{team.dnpCount}</Badge>}
+      {team.dnpCount > 0 && (
+        <button
+          type="button"
+          onClick={() => onDnpClick?.(team.teamNumber)}
+          className="shrink-0"
+        >
+          <Badge color="red">DNP×{team.dnpCount}</Badge>
+        </button>
+      )}
       <span className="text-xs text-slate-600 shrink-0">{team.submissionCount} lists</span>
     </div>
   );
@@ -287,7 +293,7 @@ function CompareModal({
               {[
                 { num: teamA, stats: statsA },
                 { num: teamB, stats: statsB },
-              ].map(({ num, stats }) => {
+              ].map(({ num, stats }, idx) => {
                 const td = teamDataMap.get(num);
                 const nickname =
                   stats?.nickname ?? teamsList.find((t) => t.teamNumber === num)?.nickname ?? "";
@@ -304,7 +310,7 @@ function CompareModal({
                         🤖
                       </div>
                     )}
-                    <p className="text-sm font-bold text-slate-200">Team {num}</p>
+                    <p className={`text-sm font-bold ${idx === 0 ? "text-red-400" : "text-blue-400"}`}>Team {num}</p>
                     <p className="text-xs text-slate-500 truncate">{nickname}</p>
                     <div className="flex flex-wrap gap-1 justify-center mt-1">
                       <FlagBadges flags={flagsByTeam.get(num)} />
@@ -589,14 +595,52 @@ function TeamQuickViewModal({
 
 type RankResult = { teamNumber: number; oldRank: number; newRank: number; delta: number };
 
+function shuffle<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function generatePairs(teamNumbers: number[]): Array<[number, number]> {
   const pairs: Array<[number, number]> = [];
   for (let i = 0; i < teamNumbers.length; i++)
     for (let j = i + 1; j < teamNumbers.length; j++)
       pairs.push([teamNumbers[i], teamNumbers[j]]);
-  for (let i = pairs.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
+  return shuffle(pairs);
+}
+
+function generateRandomPairs(teamNumbers: number[], maxCount: number): Array<[number, number]> {
+  return generatePairs(teamNumbers).slice(0, maxCount);
+}
+
+function generateNeighborhoodPairs(teamNumbers: number[], k: number): Array<[number, number]> {
+  const pairs: Array<[number, number]> = [];
+  for (let i = 0; i < teamNumbers.length; i++)
+    for (let d = 1; d <= k && i + d < teamNumbers.length; d++)
+      pairs.push([teamNumbers[i], teamNumbers[i + d]]);
+  return shuffle(pairs);
+}
+
+function generateMergeSortPairs(teamNumbers: number[]): Array<[number, number]> {
+  const n = teamNumbers.length;
+  const pairs: Array<[number, number]> = [];
+  // Bottom-up merge sort: record every comparison that would be made
+  for (let width = 1; width < n; width *= 2) {
+    const passCompares: Array<[number, number]> = [];
+    for (let lo = 0; lo < n; lo += 2 * width) {
+      const mid = Math.min(lo + width, n);
+      const hi = Math.min(lo + 2 * width, n);
+      let i = lo, j = mid;
+      while (i < mid && j < hi) {
+        passCompares.push([teamNumbers[i], teamNumbers[j]]);
+        // Simulate merge: assume left wins (preserves current order) for pair generation
+        i++;
+        if (i >= mid) j++;
+      }
+    }
+    pairs.push(...shuffle(passCompares));
   }
   return pairs;
 }
@@ -641,6 +685,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
     api.teamFlags.getAllFlags,
     event ? { eventKey: event.eventKey } : "skip",
   );
+  const allUsers = useQuery(api.users.listUsers);
 
   const upsertList = useMutation(api.pickList.upsertMyPickList);
   const setReadyMutation = useMutation(api.pickList.setPickListReady);
@@ -652,12 +697,17 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
   const [generating, setGenerating] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [previewTeam, setPreviewTeam] = useState<number | null>(null);
+  const [dnpPopupTeam, setDnpPopupTeam] = useState<number | null>(null);
   const userEdited = useRef(false);
 
   // Rank game state
   const [rankPhase, setRankPhase] = useState<"idle" | "setup" | "comparing" | "results">("idle");
   const [rankTarget, setRankTarget] = useState<"mine" | "consensus">("mine");
   const [rankRange, setRankRange] = useState({ start: 1, end: 10 });
+  const [rankRangeText, setRankRangeText] = useState({ start: "1", end: "10" });
+  const [rankMode, setRankMode] = useState<"full" | "neighborhood" | "random" | "mergesort">("full");
+  const [neighborhoodK, setNeighborhoodK] = useState(3);
+  const [maxComparisons, setMaxComparisons] = useState(30);
   const [rankPairs, setRankPairs] = useState<Array<[number, number]>>([]);
   const [rankPairIdx, setRankPairIdx] = useState(0);
   const [rankScores, setRankScores] = useState<Map<number, number>>(new Map());
@@ -778,9 +828,18 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
   }
 
   function startRankingGame(target: "mine" | "consensus") {
+    // Parse and clamp the text inputs to valid range values
+    const s = Math.max(1, parseInt(rankRangeText.start, 10) || 1);
+    const e = Math.max(s + 1, Math.min(parseInt(rankRangeText.end, 10) || s + 1, getRankList().length));
+    setRankRange({ start: s, end: e });
     const list = target === "mine" ? localList : localConsensus;
-    const sub = list.slice(rankRange.start - 1, rankRange.end);
-    const pairs = generatePairs(sub.map((t) => t.teamNumber));
+    const sub = list.slice(s - 1, e);
+    const nums = sub.map((t) => t.teamNumber);
+    let pairs: Array<[number, number]>;
+    if (rankMode === "neighborhood") pairs = generateNeighborhoodPairs(nums, neighborhoodK);
+    else if (rankMode === "random") pairs = generateRandomPairs(nums, maxComparisons);
+    else if (rankMode === "mergesort") pairs = generateMergeSortPairs(nums);
+    else pairs = generatePairs(nums);
     setRankTarget(target);
     setRankPairs(pairs);
     setRankPairIdx(0);
@@ -889,6 +948,36 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
     </div>
   );
 
+  // ── DNP POPUP MODAL ──────────────────────────────────────────────────────
+  const userDisplayMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const u of (allUsers as any[] | undefined) ?? []) {
+      map.set(u.userId, u.displayName ?? u.email ?? "Unknown");
+    }
+    return map;
+  }, [allUsers]);
+
+  const dnpPopupModal = dnpPopupTeam !== null && (
+    <Modal
+      open={true}
+      onClose={() => setDnpPopupTeam(null)}
+      title={`DNP Flags — Team ${dnpPopupTeam}`}
+    >
+      <div className="space-y-2">
+        {(allFlags ?? [])
+          .filter((f) => f.teamNumber === dnpPopupTeam && f.tag === "DNP")
+          .map((f, i) => (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <span className="text-slate-300">{userDisplayMap.get(f.flaggedBy as string) ?? "Unknown scout"}</span>
+            </div>
+          ))}
+        {(allFlags ?? []).filter((f) => f.teamNumber === dnpPopupTeam && f.tag === "DNP").length === 0 && (
+          <p className="text-slate-400 text-sm">No DNP flags found.</p>
+        )}
+      </div>
+    </Modal>
+  );
+
   // ── RANK GAME MODALS (shared by both views) ───────────────────────────────
   const rankListLen = getRankList().length;
   const rankGameModals = (
@@ -907,33 +996,76 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
             <div className="flex-1">
               <label className="block text-xs text-slate-400 mb-1">From rank</label>
               <input
-                type="number"
-                min={1}
-                max={rankListLen - 1}
-                value={rankRange.start}
-                onChange={(e) => setRankRange((r) => ({ ...r, start: Math.max(1, Math.min(Number(e.target.value), r.end - 1)) }))}
+                type="text"
+                inputMode="numeric"
+                value={rankRangeText.start}
+                onChange={(e) => setRankRangeText((r) => ({ ...r, start: e.target.value }))}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
               />
             </div>
             <div className="flex-1">
               <label className="block text-xs text-slate-400 mb-1">To rank</label>
               <input
-                type="number"
-                min={2}
-                max={rankListLen}
-                value={rankRange.end}
-                onChange={(e) => setRankRange((r) => ({ ...r, end: Math.max(r.start + 1, Math.min(Number(e.target.value), rankListLen)) }))}
+                type="text"
+                inputMode="numeric"
+                value={rankRangeText.end}
+                onChange={(e) => setRankRangeText((r) => ({ ...r, end: e.target.value }))}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
               />
             </div>
           </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Mode</label>
+            <select
+              value={rankMode}
+              onChange={(e) => setRankMode(e.target.value as typeof rankMode)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+            >
+              <option value="full">Full — all pairs (O(n²))</option>
+              <option value="neighborhood">Neighborhood — ±k window</option>
+              <option value="random">Random sample</option>
+              <option value="mergesort">Merge sort sequence (O(n log n))</option>
+            </select>
+          </div>
+          {rankMode === "neighborhood" && (
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Window size k (compare each team to ±k neighbors)</label>
+              <input
+                type="range"
+                min={1}
+                max={5}
+                value={neighborhoodK}
+                onChange={(e) => setNeighborhoodK(Number(e.target.value))}
+                className="w-full accent-blue-500"
+              />
+              <p className="text-xs text-slate-500 mt-1">k = {neighborhoodK}</p>
+            </div>
+          )}
+          {rankMode === "random" && (
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Max comparisons</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={maxComparisons}
+                onChange={(e) => setMaxComparisons(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          )}
           {(() => {
-            const n = rankRange.end - rankRange.start + 1;
-            const pairs = (n * (n - 1)) / 2;
+            const s = Math.max(1, parseInt(rankRangeText.start, 10) || 1);
+            const e = Math.max(s + 1, Math.min(parseInt(rankRangeText.end, 10) || s + 1, rankListLen));
+            const n = e - s + 1;
+            let pairCount: number;
+            if (rankMode === "neighborhood") pairCount = Math.max(0, neighborhoodK * n - (neighborhoodK * (neighborhoodK + 1)) / 2);
+            else if (rankMode === "random") pairCount = Math.min(maxComparisons, (n * (n - 1)) / 2);
+            else if (rankMode === "mergesort") pairCount = Math.round(n * Math.ceil(Math.log2(Math.max(n, 2))));
+            else pairCount = (n * (n - 1)) / 2;
             return (
               <p className="text-xs text-slate-500">
-                {n} robots · {pairs} comparison{pairs !== 1 ? "s" : ""}
-                {pairs > 30 && <span className="text-yellow-400 ml-2">⚠ Large range — consider narrowing</span>}
+                {n} robots · ~{pairCount} comparison{pairCount !== 1 ? "s" : ""}
+                {pairCount > 100 && <span className="text-yellow-400 ml-2">⚠ Many pairs</span>}
               </p>
             );
           })()}
@@ -1155,6 +1287,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
                     flags={flagsByTeam.get(team.teamNumber)}
                     draggable={role === "admin"}
                     onPreview={setPreviewTeam}
+                    onDnpClick={setDnpPopupTeam}
                   />
                 ))}
               </SortableContext>
@@ -1181,6 +1314,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
           />
         )}
         {rankGameModals}
+        {dnpPopupModal}
       </div>
     );
   }
@@ -1245,11 +1379,19 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
                   flags={flagsByTeam.get(team.teamNumber)}
                   onToggleDnp={() => {
                     userEdited.current = true;
-                    setLocalList((prev) =>
-                      prev.map((t) =>
+                    setLocalList((prev) => {
+                      const updated = prev.map((t) =>
                         t.teamNumber === team.teamNumber ? { ...t, dnp: !t.dnp } : t,
-                      ),
-                    );
+                      );
+                      const nowDnp = updated.find((t) => t.teamNumber === team.teamNumber)?.dnp;
+                      if (nowDnp) {
+                        // Move to bottom of list
+                        const idx = updated.findIndex((t) => t.teamNumber === team.teamNumber);
+                        const [moved] = updated.splice(idx, 1);
+                        updated.push(moved);
+                      }
+                      return updated;
+                    });
                   }}
                   onNotesChange={(n) => {
                     userEdited.current = true;
@@ -1287,6 +1429,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
       )}
 
       {rankGameModals}
+      {dnpPopupModal}
     </div>
   );
 }

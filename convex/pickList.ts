@@ -134,21 +134,17 @@ export const calculateConsensusPickList = action({
     for (const t of allTeamNumbers) scores.set(t, { rankSum: 0, count: 0, dnpCount: 0 });
 
     for (const list of readyLists) {
-      const ranked = list.rankedTeams.filter((t) => !t.dnp);
-      for (const entry of ranked) {
+      for (const entry of list.rankedTeams) {
         const s = scores.get(entry.teamNumber);
         if (s) {
-          s.rankSum += entry.rank;
+          // DNP entries count as the worst rank (= total teams) rather than being excluded
+          s.rankSum += entry.dnp ? allTeamNumbers.length : entry.rank;
           s.count += 1;
+          if (entry.dnp) s.dnpCount += 1;
         }
-      }
-      for (const t of list.rankedTeams.filter((t) => t.dnp)) {
-        const s = scores.get(t.teamNumber);
-        if (s) s.dnpCount += 1;
       }
     }
 
-    const submitterCount = readyLists.length;
     const rankedTeams = allTeamNumbers
       .map((teamNumber) => {
         const s = scores.get(teamNumber)!;
@@ -163,10 +159,6 @@ export const calculateConsensusPickList = action({
         };
       })
       .sort((a, b) => {
-        const aDnp = a.dnpCount > submitterCount / 2;
-        const bDnp = b.dnpCount > submitterCount / 2;
-        if (aDnp && !bDnp) return 1;
-        if (!aDnp && bDnp) return -1;
         const rankDiff = a.averageRank - b.averageRank;
         if (rankDiff !== 0) return rankDiff;
         // EPA tiebreaker: higher EPA ranks first
