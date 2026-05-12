@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { cacheGet, cacheSet } from "./lib/localCache";
 import AppShell from "./components/layout/AppShell";
 import LoginPage from "./auth/LoginPage";
 import ScoutPage from "./pages/ScoutPage";
@@ -21,9 +22,15 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isAuthenticated) {
+      localStorage.setItem("frc_was_authenticated", "1");
       ensureProfile({}).catch(() => {});
     }
   }, [isAuthenticated]);
+
+  // Offline bypass: if Convex is unreachable but the user was previously authenticated,
+  // let them through so the cached scout form is accessible.
+  const wasAuthenticated = localStorage.getItem("frc_was_authenticated") === "1";
+  if (isLoading && !navigator.onLine && wasAuthenticated) return <>{children}</>;
 
   if (isLoading)
     return (
@@ -49,7 +56,23 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 
 function RootRedirect() {
   const profile = useQuery(api.users.getCurrentUserProfile);
-  if (profile === undefined) return <Spinner />;
+
+  useEffect(() => {
+    if (profile !== undefined) cacheSet("frc_cached_role", profile?.role ?? null);
+  }, [profile]);
+
+  if (profile === undefined) {
+    // Offline: use cached role to redirect without a spinner
+    if (!navigator.onLine) {
+      const cachedRole = cacheGet<string | null>("frc_cached_role");
+      if (cachedRole !== undefined) {
+        return cachedRole === "analyst"
+          ? <Navigate to="/data" replace />
+          : <Navigate to="/scout" replace />;
+      }
+    }
+    return <Spinner />;
+  }
   if (profile?.role === "analyst") return <Navigate to="/data" replace />;
   return <Navigate to="/scout" replace />;
 }

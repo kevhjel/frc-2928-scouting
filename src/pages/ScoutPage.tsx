@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useActiveEvent } from "../hooks/useActiveEvent";
 import { useActiveScoutingConfig } from "../hooks/useScoutingConfig";
+import { cacheGet, cacheSet } from "../lib/localCache";
 import { enqueue, dequeue } from "../lib/offlineStorage";
 import { EntryData } from "../lib/configTypes";
 import DynamicScoutingForm from "../components/forms/DynamicScoutingForm";
@@ -76,14 +77,29 @@ export default function ScoutPage() {
   const config = useActiveScoutingConfig();
   const submitEntry = useMutation(api.matchScouting.submitMatchEntry);
   const addFlag = useMutation(api.teamFlags.addFlag);
-  const allAssignments = useQuery(
+  const allAssignmentsLive = useQuery(
     api.matchAssignments.getMyAssignmentsFull,
     event ? { eventKey: event.eventKey } : "skip",
   );
-  const matches = useQuery(
+  useEffect(() => {
+    if (allAssignmentsLive !== undefined && event)
+      cacheSet(`frc_cached_assignments_${event.eventKey}`, allAssignmentsLive);
+  }, [allAssignmentsLive, event?.eventKey]);
+  const allAssignments = allAssignmentsLive !== undefined
+    ? allAssignmentsLive
+    : (cacheGet(`frc_cached_assignments_${event?.eventKey ?? ""}`) as typeof allAssignmentsLive);
+
+  const matchesLive = useQuery(
     api.matches.getMatchesForEvent,
     event ? { eventKey: event.eventKey } : "skip",
   );
+  useEffect(() => {
+    if (matchesLive !== undefined && event)
+      cacheSet(`frc_cached_matches_${event.eventKey}`, matchesLive);
+  }, [matchesLive, event?.eventKey]);
+  const matches = matchesLive !== undefined
+    ? matchesLive
+    : (cacheGet(`frc_cached_matches_${event?.eventKey ?? ""}`) as typeof matchesLive);
   const coverage = useQuery(
     api.matchScouting.getScoutingCoverage,
     event ? { eventKey: event.eventKey } : "skip",
