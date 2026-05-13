@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useNavVisibility } from "../../context/NavVisibility";
+import { cacheGet, cacheSet } from "../../lib/localCache";
 
 const navItems = [
   { to: "/scout", label: "Scout", icon: "📋", matchPrefix: "/scout", roles: ["scout", "admin"] },
@@ -15,8 +16,11 @@ const navItems = [
 ] as const;
 
 export default function BottomNav() {
-  const profile = useQuery(api.users.getCurrentUserProfile);
-  const role = profile?.role;
+  const profileLive = useQuery(api.users.getCurrentUserProfile);
+  useEffect(() => {
+    if (profileLive !== undefined) cacheSet("frc_cached_role", profileLive?.role ?? null);
+  }, [profileLive]);
+  const role = profileLive?.role ?? (cacheGet<string>("frc_cached_role") ?? undefined);
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { hasUnsavedData } = useNavVisibility();

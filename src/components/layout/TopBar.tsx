@@ -1,7 +1,10 @@
+import { useEffect } from "react";
 import { useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { NavLink, useLocation } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
+import { useActiveEvent } from "../../hooks/useActiveEvent";
+import { cacheGet, cacheSet } from "../../lib/localCache";
 import Badge from "../ui/Badge";
 
 const navItems = [
@@ -16,9 +19,12 @@ const navItems = [
 
 export default function TopBar() {
   const { signOut } = useAuthActions();
-  const event = useQuery(api.events.getActiveEvent);
-  const profile = useQuery(api.users.getCurrentUserProfile);
-  const role = profile?.role;
+  const event = useActiveEvent();
+  const profileLive = useQuery(api.users.getCurrentUserProfile);
+  useEffect(() => {
+    if (profileLive !== undefined) cacheSet("frc_cached_role", profileLive?.role ?? null);
+  }, [profileLive]);
+  const role = profileLive?.role ?? (cacheGet<string>("frc_cached_role") ?? undefined);
   const { pathname } = useLocation();
 
   const visible = navItems.filter((item) =>
@@ -53,10 +59,10 @@ export default function TopBar() {
       </nav>
 
       <div className="flex items-center gap-3">
-        {profile && (
+        {profileLive && (
           <span className="hidden sm:block text-sm text-slate-400">
-            {profile.displayName}
-            <Badge color="gray" className="ml-2">{profile.role}</Badge>
+            {profileLive.displayName}
+            <Badge color="gray" className="ml-2">{profileLive.role}</Badge>
           </span>
         )}
         <button

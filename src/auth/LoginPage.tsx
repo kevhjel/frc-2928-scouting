@@ -22,6 +22,10 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Offline: if the user was previously authenticated, bypass the login page entirely.
+  if (!navigator.onLine && localStorage.getItem("frc_was_authenticated") === "1")
+    return <Navigate to="/" replace />;
+
   if (isLoading)
     return (
       <div className="flex h-screen items-center justify-center">

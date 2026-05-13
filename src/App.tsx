@@ -44,12 +44,15 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const profile = useQuery(api.users.getCurrentUserProfile);
-  if (profile === undefined)
+  if (profile === undefined) {
+    if (!navigator.onLine && cacheGet<string>("frc_cached_role") === "admin")
+      return <>{children}</>;
     return (
       <div className="flex h-screen items-center justify-center">
         <Spinner />
       </div>
     );
+  }
   if (profile?.role !== "admin") return <Navigate to="/" replace />;
   return <>{children}</>;
 }
