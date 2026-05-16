@@ -95,7 +95,7 @@ export default function DataPage() {
     const active = sortKey === k;
     return (
       <th
-        className={`px-3 py-2 text-left text-xs font-medium text-slate-400 cursor-pointer hover:text-slate-200 whitespace-nowrap select-none ${className}`}
+        className={`sticky top-0 z-10 bg-slate-900 px-3 py-2 text-left text-xs font-medium text-slate-400 cursor-pointer hover:text-slate-200 whitespace-nowrap select-none ${className}`}
         onClick={() => toggleSort(k)}
       >
         {label} {active ? (sortAsc ? "↑" : "↓") : ""}
@@ -186,10 +186,10 @@ export default function DataPage() {
       ) : (
         <div className="flex-1 overflow-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-900 sticky top-0 z-10">
+            <thead className="bg-slate-900">
               <tr>
-                <th className="hidden sm:table-cell px-3 py-2 w-40" />
-                <SortHeader label="Team" k="teamNumber" className="sticky top-0 left-0 z-30 bg-slate-900" />
+                <th className="hidden sm:table-cell sticky top-0 z-10 bg-slate-900 px-3 py-2 w-40" />
+                <SortHeader label="Team" k="teamNumber" className="left-0 z-30" />
                 <SortHeader label="OPR" k="opr" />
                 <SortHeader label="EPA" k="epa" />
                 <SortHeader label="Avg Match Balls" k="avgMatchBalls" />
@@ -197,7 +197,7 @@ export default function DataPage() {
                 {numericFields.map((f) => (
                   <SortHeader key={f.id} label={f.label} k={f.id} />
                 ))}
-                <th className="px-3 py-2 text-left text-xs font-medium text-slate-400">Flags</th>
+                <th className="sticky top-0 z-10 bg-slate-900 px-3 py-2 text-left text-xs font-medium text-slate-400">Flags</th>
               </tr>
             </thead>
             <tbody>
