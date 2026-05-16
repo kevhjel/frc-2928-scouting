@@ -1,7 +1,7 @@
-"use node";
+﻿"use node";
 import { v } from "convex/values";
 import { action } from "../_generated/server";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 
 const TBA_BASE = "https://www.thebluealliance.com/api/v3";
 
@@ -35,25 +35,28 @@ export const syncEventFromTBA = action({
         tbaFetch(`/event/${eventKey}/oprs`),
       ]);
 
-    for (const team of teamsData) {
-      await ctx.runMutation(api.teams.upsertTeam, {
-        eventKey,
-        teamNumber: parseTeamNumber(team.key),
-        teamKey: team.key,
-        nickname: team.nickname ?? `Team ${parseTeamNumber(team.key)}`,
+    // Merge OPR data into team records so we write each team document only once
+    const teams = teamsData.map((team: any) => {
+      const teamKey = team.key;
+      return {
+        teamNumber: parseTeamNumber(teamKey),
+        teamKey,
+        nickname: team.nickname ?? `Team ${parseTeamNumber(teamKey)}`,
         city: team.city ?? undefined,
         stateMprovince: team.state_prov ?? undefined,
         country: team.country ?? undefined,
         rookieYear: team.rookie_year ?? undefined,
-      });
-    }
+        opr: (oprsData?.oprs?.[teamKey] as number) ?? undefined,
+        dpr: (oprsData?.dprs?.[teamKey] as number) ?? undefined,
+        ccwm: (oprsData?.ccwms?.[teamKey] as number) ?? undefined,
+      };
+    });
 
-    for (const match of matchesData) {
+    const matches = matchesData.map((match: any) => {
       const red = (match.alliances?.red?.team_keys ?? []).map(parseTeamNumber);
       const blue = (match.alliances?.blue?.team_keys ?? []).map(parseTeamNumber);
       const youtubeKey = (match.videos ?? []).find((v: any) => v.type === "youtube")?.key;
-      await ctx.runMutation(api.matches.upsertMatch, {
-        eventKey,
+      return {
         matchKey: match.key,
         compLevel: match.comp_level as any,
         matchNumber: match.match_number,
@@ -66,21 +69,12 @@ export const syncEventFromTBA = action({
         actualTime: match.actual_time ?? undefined,
         status: matchStatus(match),
         videoUrl: youtubeKey ? `https://www.youtube.com/watch?v=${youtubeKey}` : undefined,
-      });
-    }
+      };
+    });
 
-    if (oprsData?.oprs) {
-      for (const [teamKey, opr] of Object.entries(oprsData.oprs) as [string, number][]) {
-        const teamNumber = parseTeamNumber(teamKey);
-        await ctx.runMutation(api.teams.updateTeamOpr, {
-          eventKey,
-          teamNumber,
-          opr,
-          dpr: (oprsData.dprs?.[teamKey] as number) ?? 0,
-          ccwm: (oprsData.ccwms?.[teamKey] as number) ?? 0,
-        });
-      }
-    }
+    // Two mutation calls regardless of event size (was N_teams + N_teams + N_matches calls)
+    await ctx.runMutation(internal.teams.batchUpsertTeams, { eventKey, teams });
+    await ctx.runMutation(internal.matches.batchUpsertMatches, { eventKey, matches });
 
     return {
       teamsCount: teamsData.length,

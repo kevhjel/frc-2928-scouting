@@ -1,5 +1,5 @@
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+﻿import { v } from "convex/values";
+import { internalMutation, mutation, query } from "./_generated/server";
 
 export const getMatchesForEvent = query({
   args: { eventKey: v.string() },
@@ -78,6 +78,65 @@ export const upsertMatch = mutation({
       await ctx.db.patch(existing._id, args);
     } else {
       await ctx.db.insert("matches", args);
+    }
+  },
+});
+
+const matchArgs = {
+  matchKey: v.string(),
+  compLevel: v.union(
+    v.literal("qm"),
+    v.literal("ef"),
+    v.literal("qf"),
+    v.literal("sf"),
+    v.literal("f"),
+  ),
+  matchNumber: v.number(),
+  setNumber: v.number(),
+  redAlliance: v.array(v.number()),
+  blueAlliance: v.array(v.number()),
+  redScore: v.optional(v.number()),
+  blueScore: v.optional(v.number()),
+  predictedTime: v.optional(v.number()),
+  actualTime: v.optional(v.number()),
+  status: v.union(
+    v.literal("upcoming"),
+    v.literal("in_progress"),
+    v.literal("completed"),
+  ),
+  videoUrl: v.optional(v.string()),
+};
+
+// Batch upsert matches — one call replaces N upsertMatch calls.
+// Fetches all existing matches in one read, only patches documents that actually changed.
+export const batchUpsertMatches = internalMutation({
+  args: {
+    eventKey: v.string(),
+    matches: v.array(v.object(matchArgs)),
+  },
+  handler: async (ctx, { eventKey, matches }) => {
+    const existing = await ctx.db
+      .query("matches")
+      .withIndex("by_eventKey", (q) => q.eq("eventKey", eventKey))
+      .collect();
+    const byKey = new Map(existing.map((m) => [m.matchKey, m]));
+    for (const match of matches) {
+      const ex = byKey.get(match.matchKey);
+      const payload = { eventKey, ...match };
+      if (!ex) {
+        await ctx.db.insert("matches", payload);
+        continue;
+      }
+      // Compare scalar fields and JSON-encode arrays for comparison
+      const scalarFields = [
+        "compLevel", "matchNumber", "setNumber",
+        "redScore", "blueScore", "predictedTime", "actualTime", "status", "videoUrl",
+      ] as const;
+      const scalarChanged = scalarFields.some((f) => match[f] !== (ex as any)[f]);
+      const arraysChanged =
+        JSON.stringify(match.redAlliance) !== JSON.stringify(ex.redAlliance) ||
+        JSON.stringify(match.blueAlliance) !== JSON.stringify(ex.blueAlliance);
+      if (scalarChanged || arraysChanged) await ctx.db.patch(ex._id, payload);
     }
   },
 });

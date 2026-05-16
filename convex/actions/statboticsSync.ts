@@ -1,7 +1,7 @@
-"use node";
+﻿"use node";
 import { v } from "convex/values";
 import { action } from "../_generated/server";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 
 const STATBOTICS_BASE = "https://api.statbotics.io/v3";
 
@@ -15,11 +15,10 @@ export const syncStatbotics = action({
     const teams: Array<{ teamNumber: number; teamKey: string }> =
       await ctx.runQuery(api.teams.getTeamsForEvent, { eventKey });
 
-    const year = parseInt(eventKey.slice(0, 4), 10);
-    const shortEventKey = eventKey.slice(4);
-
     let synced = 0;
+    const updates: Array<{ teamNumber: number; epa: number; epaRank?: number }> = [];
     const BATCH = 10;
+
     for (let i = 0; i < teams.length; i += BATCH) {
       const batch = teams.slice(i, i + BATCH);
       await Promise.allSettled(
@@ -36,12 +35,7 @@ export const syncStatbotics = action({
                 ? epaRaw
                 : (epaRaw?.total_points?.mean ?? epaRaw?.mean ?? 0);
             const epaRank: number | undefined = data?.rank ?? undefined;
-            await ctx.runMutation(api.teams.updateTeamEpa, {
-              eventKey,
-              teamNumber: team.teamNumber,
-              epa,
-              epaRank,
-            });
+            updates.push({ teamNumber: team.teamNumber, epa, epaRank });
             synced++;
           } catch {
             // silently skip teams not found in Statbotics
@@ -50,6 +44,12 @@ export const syncStatbotics = action({
       );
       if (i + BATCH < teams.length) await delay(200);
     }
+
+    // One mutation call for all EPA updates (was N separate calls)
+    if (updates.length > 0) {
+      await ctx.runMutation(internal.teams.batchUpdateEpa, { eventKey, updates });
+    }
+
     return { synced, total: teams.length };
   },
 });
