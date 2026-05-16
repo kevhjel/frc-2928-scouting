@@ -66,7 +66,10 @@ export default function TopBar() {
           </span>
         )}
         <button
-          onClick={() => signOut()}
+          onClick={() => {
+            localStorage.removeItem("frc_was_authenticated");
+            signOut();
+          }}
           className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
         >
           Sign out

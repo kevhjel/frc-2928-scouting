@@ -22,8 +22,9 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Offline: if the user was previously authenticated, bypass the login page entirely.
-  if (!navigator.onLine && localStorage.getItem("frc_was_authenticated") === "1")
+  // If the user was previously authenticated (and hasn't signed out), skip the login
+  // page. Works for both real offline and DevTools offline simulation.
+  if (localStorage.getItem("frc_was_authenticated") === "1")
     return <Navigate to="/" replace />;
 
   if (isLoading)

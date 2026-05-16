@@ -27,10 +27,12 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated]);
 
-  // Offline bypass: if Convex is unreachable but the user was previously authenticated,
-  // let them through so the cached scout form is accessible.
+  // If Convex is still loading but the user was previously authenticated, let them
+  // through immediately. Once Convex connects, isAuthenticated resolves and this
+  // component re-renders correctly. This also handles DevTools offline simulation
+  // where navigator.onLine stays true even though network requests are blocked.
   const wasAuthenticated = localStorage.getItem("frc_was_authenticated") === "1";
-  if (isLoading && !navigator.onLine && wasAuthenticated) return <>{children}</>;
+  if (isLoading && wasAuthenticated) return <>{children}</>;
 
   if (isLoading)
     return (
@@ -45,7 +47,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const profile = useQuery(api.users.getCurrentUserProfile);
   if (profile === undefined) {
-    if (!navigator.onLine && cacheGet<string>("frc_cached_role") === "admin")
+    if (cacheGet<string>("frc_cached_role") === "admin")
       return <>{children}</>;
     return (
       <div className="flex h-screen items-center justify-center">
@@ -65,14 +67,11 @@ function RootRedirect() {
   }, [profile]);
 
   if (profile === undefined) {
-    // Offline: use cached role to redirect without a spinner
-    if (!navigator.onLine) {
-      const cachedRole = cacheGet<string | null>("frc_cached_role");
-      if (cachedRole !== undefined) {
-        return cachedRole === "analyst"
-          ? <Navigate to="/data" replace />
-          : <Navigate to="/scout" replace />;
-      }
+    const cachedRole = cacheGet<string | null>("frc_cached_role");
+    if (cachedRole !== undefined) {
+      return cachedRole === "analyst"
+        ? <Navigate to="/data" replace />
+        : <Navigate to="/scout" replace />;
     }
     return <Spinner />;
   }
