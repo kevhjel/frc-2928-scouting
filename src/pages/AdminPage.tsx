@@ -28,7 +28,9 @@ function EventTab() {
   const createMockEvent = useAction(api.actions.createMockEvent.createMockEvent);
   const deleteMockEvent = useAction(api.actions.createMockEvent.deleteMockEvent);
   const myTeamSetting = useQuery(api.appSettings.getAppSetting, { key: "myTeamNumber" });
+  const syncEnabledSetting = useQuery(api.appSettings.getAppSetting, { key: "tba_sync_enabled" });
   const setAppSetting = useMutation(api.appSettings.setAppSetting);
+  const syncEnabled = syncEnabledSetting?.value !== "false";
 
   const [eventKey, setEventKey] = useState("");
   const [mockName, setMockName] = useState("");
@@ -151,6 +153,23 @@ function EventTab() {
             {syncMsg}
           </p>
         )}
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-slate-400">Auto Sync</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              TBA every 5 min · EPA every 2 hrs · Disable in the off-season to reduce usage.
+            </p>
+          </div>
+          <button
+            onClick={() => setAppSetting({ key: "tba_sync_enabled", value: syncEnabled ? "false" : "true" })}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${syncEnabled ? "bg-blue-600" : "bg-slate-600"}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${syncEnabled ? "translate-x-6" : "translate-x-1"}`} />
+          </button>
+        </div>
       </Card>
 
       <Card>
