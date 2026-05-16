@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const getAppSetting = query({
@@ -32,6 +33,38 @@ export const setAppSetting = mutation({
       await ctx.db.patch(existing._id, { value, updatedBy: userId, updatedAt: Date.now() });
     } else {
       await ctx.db.insert("appSettings", { key, value, updatedBy: userId, updatedAt: Date.now() });
+    }
+  },
+});
+
+// Dedicated toggle for auto-sync so enabling immediately kicks off the chain
+// rather than waiting up to 1 hour for the watchdog cron.
+export const toggleAutoSync = mutation({
+  args: { enabled: v.boolean() },
+  handler: async (ctx, { enabled }): Promise<void> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthenticated");
+    const myProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (myProfile?.role !== "admin") throw new Error("Unauthorized");
+
+    const key = "tba_sync_enabled";
+    const value = enabled ? "true" : "false";
+    const existing = await ctx.db
+      .query("appSettings")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, { value, updatedBy: userId, updatedAt: Date.now() });
+    } else {
+      await ctx.db.insert("appSettings", { key, value, updatedBy: userId, updatedAt: Date.now() });
+    }
+
+    if (enabled) {
+      await ctx.scheduler.runAfter(0, internal.actions.autoSync.runTbaSync, {});
+      await ctx.scheduler.runAfter(0, internal.actions.autoSync.runEpaSync, {});
     }
   },
 });

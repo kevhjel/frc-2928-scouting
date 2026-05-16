@@ -30,6 +30,7 @@ function EventTab() {
   const myTeamSetting = useQuery(api.appSettings.getAppSetting, { key: "myTeamNumber" });
   const syncEnabledSetting = useQuery(api.appSettings.getAppSetting, { key: "tba_sync_enabled" });
   const setAppSetting = useMutation(api.appSettings.setAppSetting);
+  const toggleAutoSync = useMutation(api.appSettings.toggleAutoSync);
   const syncEnabled = syncEnabledSetting?.value !== "false";
 
   const [eventKey, setEventKey] = useState("");
@@ -164,7 +165,7 @@ function EventTab() {
             </p>
           </div>
           <button
-            onClick={() => setAppSetting({ key: "tba_sync_enabled", value: syncEnabled ? "false" : "true" })}
+            onClick={() => toggleAutoSync({ enabled: !syncEnabled })}
             className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${syncEnabled ? "bg-blue-600" : "bg-slate-600"}`}
           >
             <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${syncEnabled ? "translate-x-6" : "translate-x-1"}`} />
