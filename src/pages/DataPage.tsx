@@ -189,7 +189,7 @@ export default function DataPage() {
             <thead className="bg-slate-900 sticky top-0 z-10">
               <tr>
                 <th className="hidden sm:table-cell px-3 py-2 w-40" />
-                <SortHeader label="Team" k="teamNumber" className="sticky left-0 z-20 bg-slate-900" />
+                <SortHeader label="Team" k="teamNumber" className="sticky top-0 left-0 z-30 bg-slate-900" />
                 <SortHeader label="OPR" k="opr" />
                 <SortHeader label="EPA" k="epa" />
                 <SortHeader label="Avg Match Balls" k="avgMatchBalls" />

@@ -39,19 +39,32 @@ function TeamDropdown({
   placeholder: string;
 }) {
   const available = teams.filter((t) => !pickedElsewhere.has(t.teamNumber) || t.teamNumber === value);
+  const selected = value ? teams.find((t) => t.teamNumber === value) : null;
   return (
-    <select
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
-    >
-      <option value="">{placeholder}</option>
-      {available.map((t) => (
-        <option key={t.teamNumber} value={t.teamNumber}>
-          {t.teamNumber} — {t.nickname.length > 18 ? t.nickname.slice(0, 18) + "…" : t.nickname}
-        </option>
-      ))}
-    </select>
+    <div className="relative w-full">
+      <div className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 min-h-[2.75rem] flex flex-col justify-center pointer-events-none">
+        {selected ? (
+          <>
+            <span className="text-xs font-medium text-slate-200 leading-tight">{selected.teamNumber}</span>
+            <span className="text-xs text-slate-400 leading-tight truncate">{selected.nickname}</span>
+          </>
+        ) : (
+          <span className="text-xs text-slate-500">{placeholder}</span>
+        )}
+      </div>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+      >
+        <option value="">{placeholder}</option>
+        {available.map((t) => (
+          <option key={t.teamNumber} value={t.teamNumber}>
+            {t.teamNumber} — {t.nickname}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 
@@ -228,10 +241,15 @@ export default function AllianceBuilderPage() {
                         placeholder="—"
                       />
                     ) : (
-                      <div className="text-sm text-slate-300 font-medium">
-                        {alliance[slot]
-                          ? `${alliance[slot]} — ${statsMap.get(alliance[slot]!)?.nickname ?? ""}`
-                          : <span className="text-slate-600">—</span>}
+                      <div className="min-h-[2.75rem] flex flex-col justify-center">
+                        {alliance[slot] ? (
+                          <>
+                            <span className="text-xs font-medium text-slate-300 leading-tight">{alliance[slot]}</span>
+                            <span className="text-xs text-slate-400 leading-tight truncate">{statsMap.get(alliance[slot]!)?.nickname ?? ""}</span>
+                          </>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
                       </div>
                     )}
                   </div>
