@@ -1,4 +1,4 @@
-import { TeamStats } from "../../convex/stats";
+import type { TeamStats } from "../../convex/stats";
 import { ScoutingConfig } from "./configTypes";
 
 function escapeCsv(v: unknown): string {

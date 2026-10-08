@@ -7,7 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { TeamStats } from "../../../convex/stats";
+import type { TeamStats } from "../../../convex/stats";
 
 interface Field {
   id: string;

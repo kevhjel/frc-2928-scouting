@@ -22,10 +22,13 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // If the user was previously authenticated (and hasn't signed out), skip the login
-  // page. Works for both real offline and DevTools offline simulation.
-  if (localStorage.getItem("frc_was_authenticated") === "1")
+  // While Convex is still resolving auth (including when offline), trust the flag and
+  // skip the login page. Once auth resolves, only isAuthenticated decides — a stale
+  // flag after an expired session would otherwise loop between / and /login.
+  if (isLoading && localStorage.getItem("frc_was_authenticated") === "1")
     return <Navigate to="/" replace />;
+  if (!isLoading && !isAuthenticated)
+    localStorage.removeItem("frc_was_authenticated");
 
   if (isLoading)
     return (

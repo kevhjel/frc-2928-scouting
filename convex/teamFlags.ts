@@ -2,15 +2,6 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
-export const PRESET_TAGS = [
-  "Tip Risk",
-  "Strong Defense",
-  "Consistent Auto",
-  "Mechanical Issues",
-  "Standout",
-  "DNP",
-] as const;
-
 export const getFlagsForTeam = query({
   args: { eventKey: v.string(), teamNumber: v.number() },
   handler: async (ctx, { eventKey, teamNumber }) => {

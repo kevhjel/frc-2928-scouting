@@ -11,7 +11,7 @@ import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Spinner from "../components/ui/Spinner";
 import Modal from "../components/ui/Modal";
-import { PRESET_TAGS } from "../../convex/teamFlags";
+import { PRESET_TAGS } from "../lib/teamTags";
 
 export default function TeamPage() {
   const { teamNumber: teamParam } = useParams<{ teamNumber: string }>();

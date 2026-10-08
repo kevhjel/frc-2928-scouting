@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import { useActiveEvent } from "../hooks/useActiveEvent";
 import { useActiveScoutingConfig } from "../hooks/useScoutingConfig";
-import { TeamStats } from "../../convex/stats";
+import type { TeamStats } from "../../convex/stats";
 import Spinner from "../components/ui/Spinner";
 import Badge from "../components/ui/Badge";
 import BubbleChart from "../components/charts/BubbleChart";

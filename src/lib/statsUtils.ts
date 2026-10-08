@@ -1,4 +1,4 @@
-import { TeamStats, FieldStats } from "../../convex/stats";
+import type { TeamStats, FieldStats } from "../../convex/stats";
 
 export function getNumericAvg(stats: TeamStats, fieldId: string): number | null {
   const fs = stats.fieldStats[fieldId];

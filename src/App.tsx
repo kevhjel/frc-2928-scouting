@@ -40,7 +40,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
         <Spinner />
       </div>
     );
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    // Convex has definitively said we're signed out (e.g. session expired), so the
+    // offline-bypass flag is stale. Clear it before redirecting, otherwise LoginPage
+    // bounces straight back here and the two routes loop forever (blank page).
+    localStorage.removeItem("frc_was_authenticated");
+    return <Navigate to="/login" replace />;
+  }
   return <>{children}</>;
 }
 

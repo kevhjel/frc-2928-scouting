@@ -22,7 +22,7 @@ function RadarTooltip({ active, payload, label }: TooltipProps<number, string>) 
     </div>
   );
 }
-import { TeamStats } from "../../../convex/stats";
+import type { TeamStats } from "../../../convex/stats";
 import { ScoutingField } from "../../lib/configTypes";
 
 interface Props {

@@ -10,7 +10,7 @@ import { EntryData } from "../lib/configTypes";
 import DynamicScoutingForm from "../components/forms/DynamicScoutingForm";
 import Spinner from "../components/ui/Spinner";
 import Card from "../components/ui/Card";
-import { PRESET_TAGS } from "../../convex/teamFlags";
+import { PRESET_TAGS } from "../lib/teamTags";
 
 function formatMatchTime(predictedTime?: number | null): string {
   if (!predictedTime) return "";
