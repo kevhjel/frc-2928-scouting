@@ -6,6 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import { useActiveEvent } from "../../hooks/useActiveEvent";
 import { cacheGet, cacheSet } from "../../lib/localCache";
 import Badge from "../ui/Badge";
+import PageGuideButton from "../help/PageGuideButton";
 
 const navItems = [
   { to: "/scout", label: "Scout", matchPrefix: "/scout", roles: ["scout", "admin"] },
@@ -65,6 +66,7 @@ export default function TopBar() {
             <Badge color="gray" className="ml-2">{profileLive.role}</Badge>
           </span>
         )}
+        <PageGuideButton />
         <button
           onClick={() => {
             localStorage.removeItem("frc_was_authenticated");

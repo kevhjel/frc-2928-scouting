@@ -136,6 +136,9 @@ export default function AllianceBuilderPage() {
   ) {
     if (!isAdmin) return;
     setBoard((prev) => {
+      // A team can only hold one slot on the whole board (including its own alliance)
+      if (value !== null && prev[allianceIdx][slot] !== value && slotTeams(prev).has(value))
+        return prev;
       const next = prev.map((a) => ({ ...a }));
       next[allianceIdx][slot] = value;
       const json = JSON.stringify(next);
@@ -202,13 +205,6 @@ export default function AllianceBuilderPage() {
       <div className="space-y-2">
         {board.map((alliance, i) => {
           const { opr, epa, balls, count } = allianceStats(alliance);
-          const pickedElsewhere = new Set<number>();
-          for (const t of allPicked) {
-            if (t !== alliance.captain && t !== alliance.pick1 && t !== alliance.pick2) {
-              pickedElsewhere.add(t);
-            }
-          }
-
           return (
             <div
               key={i}
@@ -237,7 +233,7 @@ export default function AllianceBuilderPage() {
                         value={alliance[slot]}
                         onChange={(v) => updateSlot(i, slot, v)}
                         teams={sortedTeams}
-                        pickedElsewhere={pickedElsewhere}
+                        pickedElsewhere={allPicked}
                         placeholder="—"
                       />
                     ) : (

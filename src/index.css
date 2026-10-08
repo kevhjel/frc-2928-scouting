@@ -6,8 +6,13 @@
   :root {
     font-family: Inter, system-ui, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
+    /* Render native controls (select popups, scrollbars) dark to match the app */
+    color-scheme: dark;
   }
   body {
     @apply bg-slate-950 text-slate-100 m-0;
+  }
+  option {
+    @apply bg-slate-800 text-slate-100;
   }
 }
