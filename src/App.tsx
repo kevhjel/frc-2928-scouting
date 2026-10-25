@@ -10,6 +10,7 @@ import PitScoutPage from "./pages/PitScoutPage";
 import DataPage from "./pages/DataPage";
 import TeamPage from "./pages/TeamPage";
 import PickListPage from "./pages/PickListPage";
+import AllianceSelectionPage from "./pages/AllianceSelectionPage";
 import AllianceBuilderPage from "./pages/AllianceBuilderPage";
 import AdminPage from "./pages/AdminPage";
 import MatchAnalysisPage from "./pages/MatchAnalysisPage";
@@ -108,6 +109,7 @@ export default function App() {
             path="picklist/consensus"
             element={<PickListPage view="consensus" />}
           />
+          <Route path="picklist/selection" element={<AllianceSelectionPage />} />
           <Route path="alliance-builder" element={<AllianceBuilderPage />} />
           <Route path="match-analysis" element={<MatchAnalysisPage />} />
           <Route
