@@ -195,6 +195,18 @@ export default defineSchema({
     calculatedFromListIds: v.array(v.id("pickLists")),
   }).index("by_eventKey", ["eventKey"]),
 
+  // Live board used on the field during alliance selection. One per event,
+  // shared by everyone so picks show up on every device in real time.
+  allianceSelections: defineTable({
+    eventKey: v.string(),
+    // Working order of every team (best first). Picked teams keep their slot.
+    order: v.array(v.number()),
+    // Teams already taken by an alliance
+    picked: v.array(v.number()),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.id("users")),
+  }).index("by_eventKey", ["eventKey"]),
+
   teamFlags: defineTable({
     eventKey: v.string(),
     teamNumber: v.number(),

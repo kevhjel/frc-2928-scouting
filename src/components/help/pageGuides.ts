@@ -186,6 +186,17 @@ const guides: { matchPrefix: string; guide: PageGuide }[] = [
           ],
         },
         {
+          heading: "Selection (alliance selection day)",
+          items: [
+            "Everyone sees the same live board, so picks show up on every phone as they happen.",
+            "An admin taps Start alliance selection to load the Team List order.",
+            "As teams get chosen on the field, admins tap Picked. The team drops into the Picked section and the rest renumber. Tap Undo if it was a mistake.",
+            "Once you know your partners, admins drag teams to reorder who you want next. Picked teams aren't affected.",
+            "Tap ⇄ on two teams, then Compare to see them side by side.",
+            "Reload pulls the Team List order back in. You can keep the picks or start over.",
+          ],
+        },
+        {
           heading: "Helpful tools",
           items: [
             "Compare puts several teams' stats side by side.",

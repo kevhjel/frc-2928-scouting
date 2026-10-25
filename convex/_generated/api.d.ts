@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as allianceSelection from "../allianceSelection.js";
 import type * as actions_autoAssign from "../actions/autoAssign.js";
 import type * as actions_autoSync from "../actions/autoSync.js";
 import type * as actions_createMockEvent from "../actions/createMockEvent.js";
@@ -45,6 +46,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  allianceSelection: typeof allianceSelection;
   "actions/autoAssign": typeof actions_autoAssign;
   "actions/autoSync": typeof actions_autoSync;
   "actions/createMockEvent": typeof actions_createMockEvent;
