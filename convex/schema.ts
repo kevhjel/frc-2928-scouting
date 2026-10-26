@@ -24,6 +24,12 @@ const scoutingFieldValidator = v.object({
   conditionalOnField: v.optional(v.string()),
 });
 
+export const allianceSlotValidator = v.object({
+  captain: v.union(v.number(), v.null()),
+  pick1: v.union(v.number(), v.null()),
+  pick2: v.union(v.number(), v.null()),
+});
+
 export default defineSchema({
   ...authTables,
 
@@ -203,9 +209,20 @@ export default defineSchema({
     order: v.array(v.number()),
     // Teams already taken by an alliance
     picked: v.array(v.number()),
+    // The real alliances as they're announced (admin-only). Every team on
+    // this board is also kept in `picked`.
+    actualBoard: v.optional(v.array(allianceSlotValidator)),
     updatedAt: v.number(),
     updatedBy: v.optional(v.id("users")),
   }).index("by_eventKey", ["eventKey"]),
+
+  // Each user's private guess at how the alliances will shake out
+  alliancePredictions: defineTable({
+    eventKey: v.string(),
+    userId: v.id("users"),
+    board: v.array(allianceSlotValidator),
+    updatedAt: v.number(),
+  }).index("by_eventKey_userId", ["eventKey", "userId"]),
 
   teamFlags: defineTable({
     eventKey: v.string(),
