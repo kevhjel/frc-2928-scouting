@@ -194,6 +194,7 @@ const guides: { matchPrefix: string; guide: PageGuide }[] = [
             "Once you know your partners, admins drag teams to reorder who you want next. Picked teams aren't affected.",
             "Tap ⇄ on two teams, then Compare to see them side by side.",
             "Reload pulls the Team List order back in. You can keep the picks or start over.",
+            "Teams an admin enters on Alliances → Actual are picked automatically and show which alliance they joined. To undo one, remove it on the Alliances tab.",
           ],
         },
         {
@@ -211,16 +212,24 @@ const guides: { matchPrefix: string; guide: PageGuide }[] = [
     guide: {
       id: "alliance-builder",
       title: "Alliances",
-      intro: "Track alliance selection live as it happens on the field.",
+      intro: "Predict how alliances will form, then track the real ones live as they're announced.",
       sections: [
+        {
+          heading: "Prediction vs Actual",
+          items: [
+            "Use the toggle at the top to switch boards. Your choice is remembered on this device.",
+            "Prediction is your own private guess. Anyone can fill one in, and only you see yours.",
+            "Actual is the real board. Admins fill it in during alliance selection and everyone sees it update live.",
+            "Every team an admin enters on Actual is automatically marked picked on Pick List → Selection. Removing it un-picks it.",
+          ],
+        },
         {
           heading: "Using the board",
           items: [
             "Each alliance has a Captain, Pick 1 and Pick 2. Tap a slot to choose a team.",
             "Teams already placed on another alliance are left out of the list.",
             "Each alliance's combined OPR, EPA and estimated balls (~Balls) update as you fill it in.",
-            "Only admins can edit. Everyone else sees the board update live.",
-            "Admins can use Clear Board to start over.",
+            "Clear empties the board you're looking at. On Actual, those teams are un-picked too.",
           ],
         },
       ],

@@ -42,6 +42,8 @@ type RowProps = {
   picked: boolean;
   canEdit: boolean;
   compareSelected: boolean;
+  /** e.g. "A3 Pick 1" when the team is on the Actual alliance board */
+  allianceLabel?: string;
   onTogglePicked: () => void;
   onToggleCompare: () => void;
   onPreview: () => void;
@@ -56,6 +58,7 @@ function SelectionRow({
   picked,
   canEdit,
   compareSelected,
+  allianceLabel,
   onTogglePicked,
   onToggleCompare,
   onPreview,
@@ -99,6 +102,7 @@ function SelectionRow({
         )}
         {!picked && <FlagBadges flags={flags} />}
         {!picked && dnpCount > 0 && <Badge color="red">DNP×{dnpCount}</Badge>}
+        {allianceLabel && <Badge color="blue">{allianceLabel}</Badge>}
       </div>
       {!picked && (
         <button
@@ -113,7 +117,7 @@ function SelectionRow({
           ⇄
         </button>
       )}
-      {canEdit && (
+      {canEdit && !allianceLabel && (
         <button
           onClick={onTogglePicked}
           className={`text-xs px-3 py-1.5 rounded border shrink-0 font-medium transition-colors ${
@@ -221,6 +225,17 @@ export default function AllianceSelectionPage() {
       .map((t) => t.teamNumber);
     return [...localOrder, ...extra];
   }, [localOrder, teamsList]);
+
+  // Where each team sits on the Actual alliance board (set on the Alliances tab)
+  const allianceLabels = useMemo(() => {
+    const map = new Map<number, string>();
+    (board?.actualBoard ?? []).forEach((a, i) => {
+      if (a.captain !== null) map.set(a.captain, `A${i + 1} Captain`);
+      if (a.pick1 !== null) map.set(a.pick1, `A${i + 1} Pick 1`);
+      if (a.pick2 !== null) map.set(a.pick2, `A${i + 1} Pick 2`);
+    });
+    return map;
+  }, [board?.actualBoard]);
 
   const pickedSet = useMemo(() => new Set(localPicked), [localPicked]);
   const available = fullOrder.filter((n) => !pickedSet.has(n));
@@ -374,6 +389,7 @@ export default function AllianceSelectionPage() {
                         picked
                         canEdit={canEdit}
                         compareSelected={false}
+                        allianceLabel={allianceLabels.get(n)}
                         onTogglePicked={() => togglePicked(n)}
                         onToggleCompare={() => {}}
                         onPreview={() => setPreviewTeam(n)}
@@ -418,6 +434,7 @@ export default function AllianceSelectionPage() {
         <div className="space-y-4">
           <p className="text-sm text-slate-400">
             This replaces the board's order with the current Team List. Any reordering done here will be lost.
+            Starting over keeps teams that are on the Actual alliances board marked picked.
           </p>
           <div className="flex flex-col gap-2">
             <Button onClick={() => handleStart(false)} disabled={starting}>

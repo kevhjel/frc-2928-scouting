@@ -3,7 +3,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useActiveEvent } from "../hooks/useActiveEvent";
 import { useActiveScoutingConfig } from "../hooks/useScoutingConfig";
-import Card from "../components/ui/Card";
 import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
 
@@ -68,6 +67,39 @@ function TeamDropdown({
   );
 }
 
+type Mode = "prediction" | "actual";
+const MODE_KEY = "frc_alliance_board_mode";
+
+function readMode(): Mode {
+  try {
+    return localStorage.getItem(MODE_KEY) === "actual" ? "actual" : "prediction";
+  } catch {
+    return "prediction";
+  }
+}
+
+function parseBoard(json: string | undefined | null): AllianceSlot[] | null {
+  if (!json) return null;
+  try {
+    const parsed = JSON.parse(json);
+    if (Array.isArray(parsed) && parsed.length === 8) return parsed;
+  } catch {
+    // ignore malformed data
+  }
+  return null;
+}
+
+const ALLIANCE_COLORS = [
+  "border-red-700/60",
+  "border-blue-700/60",
+  "border-green-700/60",
+  "border-yellow-700/60",
+  "border-purple-700/60",
+  "border-orange-700/60",
+  "border-pink-700/60",
+  "border-teal-700/60",
+];
+
 export default function AllianceBuilderPage() {
   const event = useActiveEvent();
   const config = useActiveScoutingConfig();
@@ -81,43 +113,66 @@ export default function AllianceBuilderPage() {
     event && config ? { eventKey: event.eventKey, configId: config._id } : "skip",
   );
   const myTeamSetting = useQuery(api.appSettings.getAppSetting, { key: "myTeamNumber" });
-  const boardKey = event ? `allianceBoard_${event.eventKey}` : null;
-  const savedBoard = useQuery(
+  // Old shared board (before predictions were per user). Used to seed a
+  // user's first prediction so earlier work isn't lost.
+  const legacyBoard = useQuery(
     api.appSettings.getAppSetting,
-    boardKey ? { key: boardKey } : "skip",
+    event ? { key: `allianceBoard_${event.eventKey}` } : "skip",
   );
-  const setAppSetting = useMutation(api.appSettings.setAppSetting);
-
-  const [board, setBoard] = useState<AllianceSlot[]>(EMPTY_BOARD);
-  const [initialized, setInitialized] = useState(false);
-
-  // Load board from appSettings once available
-  useEffect(() => {
-    if (initialized) return;
-    if (savedBoard === undefined) return; // still loading
-    if (savedBoard?.value) {
-      try {
-        const parsed = JSON.parse(savedBoard.value);
-        if (Array.isArray(parsed) && parsed.length === 8) {
-          setBoard(parsed);
-          setInitialized(true);
-          return;
-        }
-      } catch {}
-    }
-    // No saved board — pre-fill alliance 1 captain from myTeamNumber if admin
-    const myTeam = myTeamSetting?.value ? Number(myTeamSetting.value) : null;
-    if (myTeam && profile?.role === "admin") {
-      setBoard((b) => {
-        const next = b.map((a) => ({ ...a }));
-        next[0].captain = myTeam;
-        return next;
-      });
-    }
-    setInitialized(true);
-  }, [savedBoard, myTeamSetting, profile, initialized]);
+  const myPrediction = useQuery(
+    api.allianceSelection.getMyPrediction,
+    event ? { eventKey: event.eventKey } : "skip",
+  );
+  const selection = useQuery(
+    api.allianceSelection.getAllianceSelection,
+    event ? { eventKey: event.eventKey } : "skip",
+  );
+  const savePrediction = useMutation(api.allianceSelection.saveMyPrediction);
+  const setActualSlot = useMutation(api.allianceSelection.setActualSlot);
+  const clearActual = useMutation(api.allianceSelection.clearActualBoard);
 
   const isAdmin = profile?.role === "admin";
+  const [mode, setModeState] = useState<Mode>(readMode);
+  const [prediction, setPrediction] = useState<AllianceSlot[]>(EMPTY_BOARD);
+  const [predictionLoaded, setPredictionLoaded] = useState(false);
+  const [actual, setActual] = useState<AllianceSlot[]>(EMPTY_BOARD);
+  const [actualError, setActualError] = useState<string | null>(null);
+
+  function setMode(m: Mode) {
+    setModeState(m);
+    try {
+      localStorage.setItem(MODE_KEY, m);
+    } catch {
+      // storage unavailable — mode just won't be remembered
+    }
+  }
+
+  // Load this user's prediction once
+  useEffect(() => {
+    if (predictionLoaded) return;
+    if (myPrediction === undefined || legacyBoard === undefined || myTeamSetting === undefined) return;
+    if (myPrediction) {
+      setPrediction(myPrediction.board);
+    } else {
+      const legacy = parseBoard(legacyBoard?.value);
+      if (legacy) {
+        setPrediction(legacy);
+      } else {
+        const myTeam = myTeamSetting?.value ? Number(myTeamSetting.value) : null;
+        if (myTeam) {
+          const next = EMPTY_BOARD.map((a) => ({ ...a }));
+          next[0].captain = myTeam;
+          setPrediction(next);
+        }
+      }
+    }
+    setPredictionLoaded(true);
+  }, [myPrediction, legacyBoard, myTeamSetting, predictionLoaded]);
+
+  // Actual board follows the server live
+  useEffect(() => {
+    setActual(selection?.actualBoard ?? EMPTY_BOARD);
+  }, [selection?.updatedAt, selection?._id]);
 
   const sortedTeams = useMemo(
     () => (teams ? [...teams].sort((a, b) => a.teamNumber - b.teamNumber) : []),
@@ -129,30 +184,45 @@ export default function AllianceBuilderPage() {
     [allStats],
   );
 
-  function updateSlot(
-    allianceIdx: number,
-    slot: keyof AllianceSlot,
-    value: number | null,
-  ) {
+  const canEdit = mode === "prediction" || isAdmin;
+  const board = mode === "prediction" ? prediction : actual;
+
+  function updateSlot(allianceIdx: number, slot: keyof AllianceSlot, value: number | null) {
+    if (!event) return;
+    // A team can only hold one slot on the whole board (including its own alliance)
+    if (value !== null && board[allianceIdx][slot] !== value && slotTeams(board).has(value)) return;
+    const next = board.map((a) => ({ ...a }));
+    next[allianceIdx][slot] = value;
+
+    if (mode === "prediction") {
+      setPrediction(next);
+      savePrediction({ eventKey: event.eventKey, board: next }).catch(() => {});
+      return;
+    }
     if (!isAdmin) return;
-    setBoard((prev) => {
-      // A team can only hold one slot on the whole board (including its own alliance)
-      if (value !== null && prev[allianceIdx][slot] !== value && slotTeams(prev).has(value))
-        return prev;
-      const next = prev.map((a) => ({ ...a }));
-      next[allianceIdx][slot] = value;
-      const json = JSON.stringify(next);
-      if (boardKey) setAppSetting({ key: boardKey, value: json }).catch(() => {});
-      return next;
-    });
+    setActual(next);
+    setActualError(null);
+    setActualSlot({ eventKey: event.eventKey, allianceIndex: allianceIdx, slot, teamNumber: value }).catch(
+      (e) => {
+        setActual(selection?.actualBoard ?? EMPTY_BOARD);
+        setActualError(e instanceof Error ? e.message : "Couldn't save that change");
+      },
+    );
   }
 
   function clearBoard() {
+    if (!event) return;
+    if (mode === "prediction") {
+      if (!confirm("Clear your predicted alliances?")) return;
+      const empty = EMPTY_BOARD.map((a) => ({ ...a }));
+      setPrediction(empty);
+      savePrediction({ eventKey: event.eventKey, board: empty }).catch(() => {});
+      return;
+    }
     if (!isAdmin) return;
-    if (!confirm("Clear the entire alliance board?")) return;
-    const empty = EMPTY_BOARD.map((a) => ({ ...a }));
-    setBoard(empty);
-    if (boardKey) setAppSetting({ key: boardKey, value: JSON.stringify(empty) }).catch(() => {});
+    if (!confirm("Clear the actual alliances? Those teams will be un-picked on the Selection tab.")) return;
+    setActual(EMPTY_BOARD);
+    clearActual({ eventKey: event.eventKey }).catch(() => {});
   }
 
   const allPicked = slotTeams(board);
@@ -176,85 +246,103 @@ export default function AllianceBuilderPage() {
     return { opr, epa, balls, count: stats.length };
   }
 
-  const ALLIANCE_COLORS = [
-    "border-red-700/60",
-    "border-blue-700/60",
-    "border-green-700/60",
-    "border-yellow-700/60",
-    "border-purple-700/60",
-    "border-orange-700/60",
-    "border-pink-700/60",
-    "border-teal-700/60",
-  ];
-
   return (
     <div className="p-4 space-y-3 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between">
-        <h2 className="font-bold text-slate-100">Alliance Selection Board</h2>
-        {isAdmin && (
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-bold text-slate-100">Alliances</h2>
+        <div className="flex rounded-lg border border-slate-700 overflow-hidden text-sm">
+          {(["prediction", "actual"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                mode === m ? "bg-blue-600 text-white" : "bg-slate-900 text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {m === "prediction" ? "Prediction" : "Actual"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-slate-500">
+          {mode === "prediction"
+            ? "Your own guess. Only you can see it."
+            : isAdmin
+              ? "Live for everyone. Teams you enter are marked picked on the Selection tab."
+              : "Live view. Admins enter alliances as they're announced."}
+        </p>
+        {canEdit && (
           <Button variant="ghost" size="sm" onClick={clearBoard}>
-            <span className="text-red-400">Clear Board</span>
+            <span className="text-red-400">Clear</span>
           </Button>
         )}
       </div>
 
-      {!isAdmin && (
-        <p className="text-xs text-slate-500">View only — admins can edit the board.</p>
+      {actualError && mode === "actual" && (
+        <p className="text-xs text-red-400">{actualError}</p>
       )}
 
-      <div className="space-y-2">
-        {board.map((alliance, i) => {
-          const { opr, epa, balls, count } = allianceStats(alliance);
-          return (
-            <div
-              key={i}
-              className={`bg-slate-900 rounded-xl border ${ALLIANCE_COLORS[i]} p-3`}
-            >
-              <div className="flex items-center gap-1 mb-2">
-                <span className="text-xs font-bold text-slate-400 w-20 shrink-0">
-                  Alliance {i + 1}
-                </span>
-                {count > 0 && (
-                  <div className="flex gap-3 ml-auto text-xs text-slate-400">
-                    <span>OPR <span className="text-slate-200 font-medium">{opr.toFixed(1)}</span></span>
-                    <span>EPA <span className="text-slate-200 font-medium">{epa.toFixed(1)}</span></span>
-                    <span>~Balls <span className="text-slate-200 font-medium">{balls.toFixed(1)}</span></span>
-                  </div>
-                )}
+      {mode === "prediction" && !predictionLoaded ? (
+        <div className="flex justify-center py-8">
+          <Spinner />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {board.map((alliance, i) => {
+            const { opr, epa, balls, count } = allianceStats(alliance);
+            return (
+              <div
+                key={i}
+                className={`bg-slate-900 rounded-xl border ${ALLIANCE_COLORS[i]} p-3`}
+              >
+                <div className="flex items-center gap-1 mb-2">
+                  <span className="text-xs font-bold text-slate-400 w-20 shrink-0">
+                    Alliance {i + 1}
+                  </span>
+                  {count > 0 && (
+                    <div className="flex gap-3 ml-auto text-xs text-slate-400">
+                      <span>OPR <span className="text-slate-200 font-medium">{opr.toFixed(1)}</span></span>
+                      <span>EPA <span className="text-slate-200 font-medium">{epa.toFixed(1)}</span></span>
+                      <span>~Balls <span className="text-slate-200 font-medium">{balls.toFixed(1)}</span></span>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["captain", "pick1", "pick2"] as const).map((slot, si) => (
+                    <div key={slot}>
+                      <p className="text-xs text-slate-500 mb-1">
+                        {si === 0 ? "Captain" : `Pick ${si}`}
+                      </p>
+                      {canEdit ? (
+                        <TeamDropdown
+                          value={alliance[slot]}
+                          onChange={(v) => updateSlot(i, slot, v)}
+                          teams={sortedTeams}
+                          pickedElsewhere={allPicked}
+                          placeholder="—"
+                        />
+                      ) : (
+                        <div className="min-h-[2.75rem] flex flex-col justify-center">
+                          {alliance[slot] ? (
+                            <>
+                              <span className="text-xs font-medium text-slate-300 leading-tight">{alliance[slot]}</span>
+                              <span className="text-xs text-slate-400 leading-tight truncate">{statsMap.get(alliance[slot]!)?.nickname ?? ""}</span>
+                            </>
+                          ) : (
+                            <span className="text-slate-600">—</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {(["captain", "pick1", "pick2"] as const).map((slot, si) => (
-                  <div key={slot}>
-                    <p className="text-xs text-slate-500 mb-1">
-                      {si === 0 ? "Captain" : `Pick ${si}`}
-                    </p>
-                    {isAdmin ? (
-                      <TeamDropdown
-                        value={alliance[slot]}
-                        onChange={(v) => updateSlot(i, slot, v)}
-                        teams={sortedTeams}
-                        pickedElsewhere={allPicked}
-                        placeholder="—"
-                      />
-                    ) : (
-                      <div className="min-h-[2.75rem] flex flex-col justify-center">
-                        {alliance[slot] ? (
-                          <>
-                            <span className="text-xs font-medium text-slate-300 leading-tight">{alliance[slot]}</span>
-                            <span className="text-xs text-slate-400 leading-tight truncate">{statsMap.get(alliance[slot]!)?.nickname ?? ""}</span>
-                          </>
-                        ) : (
-                          <span className="text-slate-600">—</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
