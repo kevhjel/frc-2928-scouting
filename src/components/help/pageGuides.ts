@@ -170,7 +170,7 @@ const guides: { matchPrefix: string; guide: PageGuide }[] = [
         {
           heading: "My List",
           items: [
-            "Drag teams by the ⠿ handle to reorder them. Your list saves automatically.",
+            "Drag teams by the ⠿ handle on the left to reorder them. The row lights up while you're moving it. Your list saves automatically.",
             "Mark a team DNP (Do Not Pick) to move it to the bottom.",
             "Add notes on a row to remember why you ranked a team there.",
             "Tap a team number to see a quick summary of its stats and notes.",
@@ -192,6 +192,7 @@ const guides: { matchPrefix: string; guide: PageGuide }[] = [
             "An admin taps Start alliance selection to load the Team List order.",
             "As teams get chosen on the field, admins tap Picked. The team drops into the Picked section and the rest renumber. Tap Undo if it was a mistake.",
             "Once you know your partners, admins drag teams to reorder who you want next. Picked teams aren't affected.",
+            "Type a number in Find team # to jump to that team. Admins can press Enter on an exact number to mark it picked.",
             "Tap ⇄ on two teams, then Compare to see them side by side.",
             "Reload pulls the Team List order back in. You can keep the picks or start over.",
             "Teams an admin enters on Alliances → Actual are picked automatically and show which alliance they joined. To undo one, remove it on the Alliances tab.",
@@ -226,8 +227,8 @@ const guides: { matchPrefix: string; guide: PageGuide }[] = [
         {
           heading: "Using the board",
           items: [
-            "Each alliance has a Captain, Pick 1 and Pick 2. Tap a slot to choose a team.",
-            "Teams already placed on another alliance are left out of the list.",
+            "Each alliance has a Captain, Pick 1 and Pick 2. Tap a slot, type the team number, and tap the match (or press Enter on an exact number).",
+            "Teams already on the board are greyed out and show where they are.",
             "Each alliance's combined OPR, EPA and estimated balls (~Balls) update as you fill it in.",
             "Clear empties the board you're looking at. On Actual, those teams are un-picked too.",
           ],

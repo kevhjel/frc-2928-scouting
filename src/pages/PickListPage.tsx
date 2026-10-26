@@ -1,14 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
+import { DndContext, closestCenter, DragEndEvent } from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -16,6 +8,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useDragSensors, dragStartHaptic, draggingRowClass, DragHandle } from "../components/picklist/dragKit";
 import { api } from "../../convex/_generated/api";
 import { useActiveEvent } from "../hooks/useActiveEvent";
 import { useActiveScoutingConfig } from "../hooks/useScoutingConfig";
@@ -72,7 +65,7 @@ function SortableTeamRow({
   onNotesChange: (n: string) => void;
   onPreview: (n: number) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: team.teamNumber,
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -81,15 +74,9 @@ function SortableTeamRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 px-3 py-2 border-b border-slate-800/50"
+      className={`flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 ${draggingRowClass(isDragging)}`}
     >
-      <div
-        {...attributes}
-        {...listeners}
-        className="text-slate-500 cursor-grab active:cursor-grabbing select-none flex items-center self-stretch px-2 -mx-1 touch-none"
-      >
-        ⠿
-      </div>
+      <DragHandle attributes={attributes} listeners={listeners} isDragging={isDragging} />
       <div className="w-6 text-xs text-slate-500 text-right shrink-0">{rank}</div>
       <TeamPhoto url={data?.photoUrl ?? null} />
       <div className="flex-1 min-w-0 flex items-center gap-1 flex-wrap">
@@ -143,7 +130,7 @@ function ConsensusRow({
   onPreview: (n: number) => void;
   onDnpClick?: (n: number) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: team.teamNumber,
     disabled: !draggable,
   });
@@ -153,16 +140,10 @@ function ConsensusRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 last:border-b-0"
+      className={`flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 last:border-b-0 ${draggingRowClass(isDragging)}`}
     >
       {draggable && (
-        <div
-          {...attributes}
-          {...listeners}
-          className="text-slate-500 cursor-grab active:cursor-grabbing select-none flex items-center self-stretch px-2 -mx-1 touch-none"
-        >
-          ⠿
-        </div>
+        <DragHandle attributes={attributes} listeners={listeners} isDragging={isDragging} />
       )}
       <span className="w-6 text-xs text-slate-500 text-right shrink-0">{rank}</span>
       <TeamPhoto url={data?.photoUrl ?? null} />
@@ -317,10 +298,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
   const [rankScores, setRankScores] = useState<Map<number, number>>(new Map());
   const [rankResults, setRankResults] = useState<RankResult[]>([]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
-  );
+  const sensors = useDragSensors();
 
   const teamDataMap = useMemo<Map<number, TeamData>>(() => {
     const map = new Map<number, TeamData>();
@@ -514,6 +492,15 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
     setRankPhase("idle");
   }
 
+  // Must stay above the early return below (hooks can't be conditional)
+  const userDisplayMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const u of (allUsers as any[] | undefined) ?? []) {
+      map.set(u.userId, u.displayName ?? u.email ?? "Unknown");
+    }
+    return map;
+  }, [allUsers]);
+
   if (!event)
     return <div className="p-6 text-center text-slate-400">No active event.</div>;
 
@@ -524,14 +511,6 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
   const tabBar = <PickListTabs onCompare={() => setCompareOpen(true)} />;
 
   // ── DNP POPUP MODAL ──────────────────────────────────────────────────────
-  const userDisplayMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const u of (allUsers as any[] | undefined) ?? []) {
-      map.set(u.userId, u.displayName ?? u.email ?? "Unknown");
-    }
-    return map;
-  }, [allUsers]);
-
   const dnpPopupModal = dnpPopupTeam !== null && (
     <Modal
       open={true}
@@ -854,7 +833,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
         ) : (
           <div className="flex-1 overflow-y-auto">
             <DndContext
-              sensors={sensors}
+              sensors={sensors} onDragStart={dragStartHaptic}
               collisionDetection={closestCenter}
               onDragEnd={role === "admin" ? handleConsensusDragEnd : undefined}
             >
@@ -946,7 +925,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
       ) : (
         <div className="flex-1 overflow-y-auto">
           <DndContext
-            sensors={sensors}
+            sensors={sensors} onDragStart={dragStartHaptic}
             collisionDetection={closestCenter}
             onDragEnd={handleMyDragEnd}
           >
