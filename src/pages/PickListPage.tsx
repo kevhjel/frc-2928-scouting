@@ -74,11 +74,12 @@ function SortableTeamRow({
     <div
       ref={setNodeRef}
       style={style}
+      data-drag-row
       className={`flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 ${draggingRowClass(isDragging)}`}
     >
       <DragHandle attributes={attributes} listeners={listeners} isDragging={isDragging} />
       <div className="w-6 text-xs text-slate-500 text-right shrink-0">{rank}</div>
-      <TeamPhoto url={data?.photoUrl ?? null} />
+      <TeamPhoto url={data?.thumbUrl ?? data?.photoUrl ?? null} />
       <div className="flex-1 min-w-0 flex items-center gap-1 flex-wrap">
         <button
           onClick={() => onPreview(team.teamNumber)}
@@ -140,13 +141,14 @@ function ConsensusRow({
     <div
       ref={setNodeRef}
       style={style}
+      data-drag-row
       className={`flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 last:border-b-0 ${draggingRowClass(isDragging)}`}
     >
       {draggable && (
         <DragHandle attributes={attributes} listeners={listeners} isDragging={isDragging} />
       )}
       <span className="w-6 text-xs text-slate-500 text-right shrink-0">{rank}</span>
-      <TeamPhoto url={data?.photoUrl ?? null} />
+      <TeamPhoto url={data?.thumbUrl ?? data?.photoUrl ?? null} />
       <div className="flex-1 min-w-0 flex items-center gap-1 flex-wrap">
         <button
           onClick={() => onPreview(team.teamNumber)}
@@ -306,6 +308,7 @@ export default function PickListPage({ view }: { view: "mine" | "consensus" }) {
       for (const s of allStats) {
         map.set(s.teamNumber, {
           photoUrl: s.pitPhotoUrl ?? s.robotPhotoUrl,
+          thumbUrl: s.pitThumbUrl,
           opr: s.opr,
           epa: s.epa,
         });

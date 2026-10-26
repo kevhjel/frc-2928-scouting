@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
+import { cachedThumb, getThumb } from "../../lib/thumbnailCache";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import Spinner from "../ui/Spinner";
@@ -8,19 +9,50 @@ import OffenseRadarChart from "../charts/OffenseRadarChart";
 import TeamNotesSection from "../teams/TeamNotesSection";
 import { computeOffenseMetrics } from "../../lib/offenseMetrics";
 
-export type TeamData = { photoUrl: string | null; opr: number | null; epa: number | null };
+export type TeamData = {
+  photoUrl: string | null;
+  /** Small server-made thumbnail, when the pit photo has one */
+  thumbUrl?: string | null;
+  opr: number | null;
+  epa: number | null;
+};
 
-export function TeamPhoto({ url }: { url: string | null }) {
-  if (url)
-    return <img src={url} alt="" className="w-6 h-6 rounded object-cover bg-slate-800 shrink-0" />;
+/** 24px team photo for list rows. Never draws the full-size image in the row. */
+export const TeamPhoto = memo(function TeamPhoto({ url }: { url: string | null }) {
+  const [thumb, setThumb] = useState<string | undefined>(() => (url ? cachedThumb(url) : undefined));
+
+  useEffect(() => {
+    if (!url) return setThumb(undefined);
+    const hit = cachedThumb(url);
+    if (hit) return setThumb(hit);
+    setThumb(undefined);
+    let alive = true;
+    getThumb(url).then((t) => alive && setThumb(t));
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+
+  if (thumb)
+    return (
+      <img
+        src={thumb}
+        alt=""
+        width={24}
+        height={24}
+        decoding="async"
+        draggable={false}
+        className="w-6 h-6 rounded object-cover bg-slate-800 shrink-0"
+      />
+    );
   return (
     <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-xs shrink-0">
-      🤖
+      {url ? "" : "🤖"}
     </div>
   );
-}
+});
 
-export function FlagBadges({ flags }: { flags?: string[] }) {
+export const FlagBadges = memo(function FlagBadges({ flags }: { flags?: string[] }) {
   if (!flags?.length) return null;
   return (
     <>
@@ -34,7 +66,7 @@ export function FlagBadges({ flags }: { flags?: string[] }) {
       ))}
     </>
   );
-}
+});
 
 export function CompareModal({
   open,
