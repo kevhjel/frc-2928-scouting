@@ -69,6 +69,7 @@ function SelectionRow({
     <div
       ref={setNodeRef}
       style={style}
+      data-drag-row
       className={`${draggingRowClass(isDragging)} flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 ${
         picked ? "opacity-50" : ""
       } ${compareSelected ? "bg-purple-950/40" : ""}`}
@@ -77,7 +78,7 @@ function SelectionRow({
         <DragHandle attributes={attributes} listeners={listeners} isDragging={isDragging} />
       )}
       <span className="w-6 text-xs text-slate-500 text-right shrink-0">{rank ?? ""}</span>
-      <TeamPhoto url={data?.photoUrl ?? null} />
+      <TeamPhoto url={data?.thumbUrl ?? data?.photoUrl ?? null} />
       <div className="flex-1 min-w-0 flex items-center gap-1 flex-wrap">
         <button
           onClick={onPreview}
@@ -177,7 +178,8 @@ export default function AllianceSelectionPage() {
     const map = new Map<number, TeamData>();
     if (allStats) {
       for (const s of allStats)
-        map.set(s.teamNumber, { photoUrl: s.pitPhotoUrl ?? s.robotPhotoUrl, opr: s.opr, epa: s.epa });
+        map.set(s.teamNumber, { photoUrl: s.pitPhotoUrl ?? s.robotPhotoUrl,
+          thumbUrl: s.pitThumbUrl, opr: s.opr, epa: s.epa });
     } else if (teamsList) {
       for (const t of teamsList)
         map.set(t.teamNumber, {

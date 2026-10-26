@@ -76,6 +76,8 @@ export default defineSchema({
     statboticsLastSynced: v.optional(v.number()),
     robotPhotoUrl: v.optional(v.string()),
     pitPhotoStorageId: v.optional(v.id("_storage")),
+    // Small (~160px) copy of the pit photo for list thumbnails
+    pitPhotoThumbStorageId: v.optional(v.id("_storage")),
   })
     .index("by_eventKey", ["eventKey"])
     .index("by_eventKey_teamNumber", ["eventKey", "teamNumber"]),

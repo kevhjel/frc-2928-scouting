@@ -24,6 +24,7 @@ export interface TeamStats {
   fieldStats: Record<string, FieldStats>;
   robotPhotoUrl: string | null;
   pitPhotoUrl: string | null;
+  pitThumbUrl: string | null;
   avgMatchBalls: number | null;
   maxMatchBalls: number | null;
 }
@@ -104,6 +105,9 @@ export const getTeamStats = query({
     const pitPhotoUrl = team.pitPhotoStorageId
       ? await ctx.storage.getUrl(team.pitPhotoStorageId)
       : null;
+    const pitThumbUrl = team.pitPhotoThumbStorageId
+      ? await ctx.storage.getUrl(team.pitPhotoThumbStorageId)
+      : null;
     const balls = computeMatchBalls(entries);
     return {
       teamNumber,
@@ -117,6 +121,7 @@ export const getTeamStats = query({
       fieldStats,
       robotPhotoUrl: team.robotPhotoUrl ?? null,
       pitPhotoUrl,
+      pitThumbUrl,
       avgMatchBalls: balls.avg,
       maxMatchBalls: balls.max,
     };
@@ -157,6 +162,9 @@ export const getAllTeamStats = query({
         const pitPhotoUrl = team.pitPhotoStorageId
           ? await ctx.storage.getUrl(team.pitPhotoStorageId)
           : null;
+        const pitThumbUrl = team.pitPhotoThumbStorageId
+          ? await ctx.storage.getUrl(team.pitPhotoThumbStorageId)
+          : null;
         const balls = computeMatchBalls(entries);
         return {
           teamNumber: team.teamNumber,
@@ -170,6 +178,7 @@ export const getAllTeamStats = query({
           fieldStats,
           robotPhotoUrl: team.robotPhotoUrl ?? null,
           pitPhotoUrl,
+          pitThumbUrl,
           avgMatchBalls: balls.avg,
           maxMatchBalls: balls.max,
         };

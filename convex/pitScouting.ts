@@ -15,8 +15,10 @@ export const submitPitEntry = mutation({
     data: entryDataValidator,
     photoStorageIds: v.optional(v.array(v.id("_storage"))),
     notes: v.optional(v.string()),
+    /** Thumbnail of photoStorageIds[0], made on the phone before upload */
+    primaryThumbStorageId: v.optional(v.id("_storage")),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, { primaryThumbStorageId, ...args }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthenticated");
     const existing = await ctx.db
@@ -47,8 +49,15 @@ export const submitPitEntry = mutation({
           q.eq("eventKey", args.eventKey).eq("teamNumber", args.teamNumber),
         )
         .unique();
-      if (team) {
-        await ctx.db.patch(team._id, { pitPhotoStorageId: args.photoStorageIds[0] });
+      const primary = args.photoStorageIds[0];
+      if (team && team.pitPhotoStorageId !== primary) {
+        // New primary photo: use its thumbnail, or none (lists fall back to the full photo)
+        await ctx.db.patch(team._id, {
+          pitPhotoStorageId: primary,
+          pitPhotoThumbStorageId: primaryThumbStorageId,
+        });
+      } else if (team && primaryThumbStorageId) {
+        await ctx.db.patch(team._id, { pitPhotoThumbStorageId: primaryThumbStorageId });
       }
     }
 
@@ -150,7 +159,10 @@ export const removePitPhoto = mutation({
       )
       .unique();
     if (team?.pitPhotoStorageId === storageId) {
-      await ctx.db.patch(team._id, { pitPhotoStorageId: updated[0] ?? undefined });
+      await ctx.db.patch(team._id, {
+        pitPhotoStorageId: updated[0] ?? undefined,
+        pitPhotoThumbStorageId: undefined,
+      });
     }
   },
 });

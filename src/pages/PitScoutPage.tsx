@@ -8,6 +8,7 @@ import DynamicScoutingForm from "../components/forms/DynamicScoutingForm";
 import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
+import { resizeImage } from "../lib/imageResize";
 
 function PitQuestionsAnswerWidget({
   eventKey,
@@ -154,25 +155,39 @@ export default function PitScoutPage() {
     ? [...teams].sort((a, b) => a.teamNumber - b.teamNumber)
     : [];
 
-  async function uploadPhotos(): Promise<string[]> {
+  async function uploadBlob(blob: Blob): Promise<string> {
+    const url = await generateUploadUrl();
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": blob.type || "image/jpeg" },
+      body: blob,
+    });
+    const { storageId } = await res.json();
+    return storageId;
+  }
+
+  /** Uploads downscaled photos, plus a small thumbnail of the first one. */
+  async function uploadPhotos(): Promise<{ ids: string[]; thumbId?: string }> {
     const ids: string[] = [];
-    for (const file of photos) {
-      const url = await generateUploadUrl();
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      const { storageId } = await res.json();
-      ids.push(storageId);
+    let thumbId: string | undefined;
+    for (const [i, file] of photos.entries()) {
+      ids.push(await uploadBlob(await resizeImage(file, 1600)));
+      if (i === 0) {
+        try {
+          thumbId = await uploadBlob(await resizeImage(file, 160, 0.8));
+        } catch {
+          // a missing thumbnail just falls back to the full photo
+        }
+      }
     }
-    return ids;
+    return { ids, thumbId };
   }
 
   async function handleSubmit(data: EntryData) {
     if (!event || !config || !teamNumber) return;
     setUploading(photos.length > 0);
-    const newPhotoIds = photos.length > 0 ? await uploadPhotos() : [];
+    const uploaded = photos.length > 0 ? await uploadPhotos() : { ids: [] as string[] };
+    const newPhotoIds = uploaded.ids;
     setUploading(false);
     const allPhotoIds = [...existingStorageIds, ...newPhotoIds];
     await submitPit({
@@ -181,6 +196,9 @@ export default function PitScoutPage() {
       configId: config._id,
       data,
       photoStorageIds: allPhotoIds.length > 0 ? (allPhotoIds as any) : undefined,
+      // Only matches the team's primary photo when there were none before
+      primaryThumbStorageId:
+        existingStorageIds.length === 0 && uploaded.thumbId ? (uploaded.thumbId as any) : undefined,
     });
     setPhotos([]);
     setSaved(true);
