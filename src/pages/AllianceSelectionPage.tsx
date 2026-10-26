@@ -1,14 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
+import { DndContext, closestCenter, DragEndEvent } from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -16,6 +8,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useDragSensors, dragStartHaptic, draggingRowClass, DragHandle } from "../components/picklist/dragKit";
 import { api } from "../../convex/_generated/api";
 import { useActiveEvent } from "../hooks/useActiveEvent";
 import { useActiveScoutingConfig } from "../hooks/useScoutingConfig";
@@ -41,6 +34,8 @@ type RowProps = {
   dnpCount: number;
   picked: boolean;
   canEdit: boolean;
+  /** Turn off dragging (e.g. while the list is filtered) */
+  dragDisabled?: boolean;
   compareSelected: boolean;
   /** e.g. "A3 Pick 1" when the team is on the Actual alliance board */
   allianceLabel?: string;
@@ -57,15 +52,16 @@ function SelectionRow({
   dnpCount,
   picked,
   canEdit,
+  dragDisabled,
   compareSelected,
   allianceLabel,
   onTogglePicked,
   onToggleCompare,
   onPreview,
 }: RowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: teamNumber,
-    disabled: !canEdit || picked,
+    disabled: !canEdit || picked || dragDisabled,
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -73,18 +69,12 @@ function SelectionRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 ${
+      className={`${draggingRowClass(isDragging)} flex items-center gap-2 px-3 py-2 border-b border-slate-800/50 ${
         picked ? "opacity-50" : ""
       } ${compareSelected ? "bg-purple-950/40" : ""}`}
     >
-      {canEdit && !picked && (
-        <div
-          {...attributes}
-          {...listeners}
-          className="text-slate-500 cursor-grab active:cursor-grabbing select-none flex items-center self-stretch px-2 -mx-1 touch-none"
-        >
-          ⠿
-        </div>
+      {canEdit && !picked && !dragDisabled && (
+        <DragHandle attributes={attributes} listeners={listeners} isDragging={isDragging} />
       )}
       <span className="w-6 text-xs text-slate-500 text-right shrink-0">{rank ?? ""}</span>
       <TeamPhoto url={data?.photoUrl ?? null} />
@@ -173,6 +163,7 @@ export default function AllianceSelectionPage() {
   const [showPicked, setShowPicked] = useState(true);
   const [confirmReset, setConfirmReset] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [find, setFind] = useState("");
 
   useEffect(() => {
     if (!board) return;
@@ -180,10 +171,7 @@ export default function AllianceSelectionPage() {
     setLocalPicked(board.picked);
   }, [board?.updatedAt, board?._id]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
-  );
+  const sensors = useDragSensors();
 
   const teamDataMap = useMemo<Map<number, TeamData>>(() => {
     const map = new Map<number, TeamData>();
@@ -241,6 +229,22 @@ export default function AllianceSelectionPage() {
   const available = fullOrder.filter((n) => !pickedSet.has(n));
   // Picked section lists teams in the order they were taken
   const pickedInOrder = localPicked.filter((n) => fullOrder.includes(n));
+
+  // Quick find by team number. Rank numbers keep the true position.
+  const findQ = find.trim();
+  const matchesFind = (n: number) => !findQ || String(n).startsWith(findQ);
+  const shownAvailable = available.filter(matchesFind);
+  const shownPicked = pickedInOrder.filter(matchesFind);
+
+  function submitFind() {
+    // Enter on an exact team number marks it picked
+    if (!canEdit) return;
+    const n = Number(findQ);
+    if (findQ && available.includes(n)) {
+      togglePicked(n);
+      setFind("");
+    }
+  }
 
   function handleDragEnd(e: DragEndEvent) {
     const { active, over } = e;
@@ -319,6 +323,31 @@ export default function AllianceSelectionPage() {
         )}
       </div>
 
+      {board && (
+        <form
+          className="flex items-center gap-2 px-4 py-2 border-b border-slate-800 bg-slate-950 shrink-0"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitFind();
+          }}
+        >
+          <input
+            inputMode="numeric"
+            enterKeyHint={canEdit ? "done" : "search"}
+            autoComplete="off"
+            placeholder={canEdit ? "Find team # (Enter marks picked)" : "Find team #"}
+            value={find}
+            onChange={(e) => setFind(e.target.value.replace(/\D/g, ""))}
+            className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-base text-slate-100 focus:outline-none focus:border-blue-500"
+          />
+          {findQ && (
+            <button type="button" onClick={() => setFind("")} className="text-sm text-slate-400 px-2 py-2">
+              Clear
+            </button>
+          )}
+        </form>
+      )}
+
       {board === undefined ? (
         <div className="flex-1 flex items-center justify-center">
           <Spinner />
@@ -345,13 +374,14 @@ export default function AllianceSelectionPage() {
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={canEdit ? handleDragEnd : undefined}>
-            <SortableContext items={available} strategy={verticalListSortingStrategy}>
-              {available.map((n, i) => (
+          <DndContext sensors={sensors} onDragStart={dragStartHaptic} collisionDetection={closestCenter} onDragEnd={canEdit ? handleDragEnd : undefined}>
+            <SortableContext items={shownAvailable} strategy={verticalListSortingStrategy}>
+              {shownAvailable.map((n) => (
                 <SelectionRow
                   key={n}
                   teamNumber={n}
-                  rank={i + 1}
+                  rank={available.indexOf(n) + 1}
+                  dragDisabled={!!findQ}
                   data={teamDataMap.get(n)}
                   flags={flagsByTeam.get(n)}
                   dnpCount={dnpByTeam.get(n) ?? 0}
@@ -376,9 +406,9 @@ export default function AllianceSelectionPage() {
                 <span>{showPicked ? "Hide" : "Show"}</span>
               </button>
               {showPicked && (
-                <DndContext sensors={sensors}>
-                  <SortableContext items={pickedInOrder} strategy={verticalListSortingStrategy}>
-                    {pickedInOrder.map((n) => (
+                <DndContext sensors={sensors} onDragStart={dragStartHaptic}>
+                  <SortableContext items={shownPicked} strategy={verticalListSortingStrategy}>
+                    {shownPicked.map((n) => (
                       <SelectionRow
                         key={n}
                         teamNumber={n}

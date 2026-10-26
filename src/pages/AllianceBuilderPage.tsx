@@ -24,45 +24,158 @@ function slotTeams(board: AllianceSlot[]): Set<number> {
   return picked;
 }
 
-function TeamDropdown({
+type TeamOption = { teamNumber: number; nickname: string };
+type SlotKey = keyof AllianceSlot;
+const SLOT_LABEL: Record<SlotKey, string> = { captain: "Captain", pick1: "Pick 1", pick2: "Pick 2" };
+
+/** Read-only display of a slot, used as the tap target that opens the picker. */
+function SlotButton({
   value,
-  onChange,
-  teams,
-  pickedElsewhere,
-  placeholder,
+  nickname,
+  onClick,
 }: {
   value: number | null;
-  onChange: (v: number | null) => void;
-  teams: Array<{ teamNumber: number; nickname: string }>;
-  pickedElsewhere: Set<number>;
-  placeholder: string;
+  nickname?: string;
+  onClick: () => void;
 }) {
-  const available = teams.filter((t) => !pickedElsewhere.has(t.teamNumber) || t.teamNumber === value);
-  const selected = value ? teams.find((t) => t.teamNumber === value) : null;
   return (
-    <div className="relative w-full">
-      <div className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 min-h-[2.75rem] flex flex-col justify-center pointer-events-none">
-        {selected ? (
-          <>
-            <span className="text-xs font-medium text-slate-200 leading-tight">{selected.teamNumber}</span>
-            <span className="text-xs text-slate-400 leading-tight truncate">{selected.nickname}</span>
-          </>
-        ) : (
-          <span className="text-xs text-slate-500">{placeholder}</span>
-        )}
-      </div>
-      <select
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left bg-slate-800 border border-slate-700 rounded px-2 py-1.5 min-h-[2.75rem] flex flex-col justify-center hover:border-slate-500 active:border-blue-500 transition-colors"
+    >
+      {value ? (
+        <>
+          <span className="text-xs font-medium text-slate-200 leading-tight">{value}</span>
+          <span className="text-xs text-slate-400 leading-tight truncate">{nickname ?? ""}</span>
+        </>
+      ) : (
+        <span className="text-xs text-slate-500">Tap to set</span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * Type a team number (or part of a name) and pick from the matches.
+ * Anchored to the top of the screen so the phone keyboard doesn't cover it.
+ */
+function TeamPicker({
+  title,
+  value,
+  teams,
+  takenBy,
+  onPick,
+  onClose,
+}: {
+  title: string;
+  value: number | null;
+  teams: TeamOption[];
+  /** Teams already on the board, with where they are (e.g. "A2 Pick 1") */
+  takenBy: Map<number, string>;
+  onPick: (team: number | null) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+
+  const matches = useMemo(() => {
+    if (!q) return teams;
+    const isNumber = /^\d+$/.test(q);
+    const list = teams.filter((t) =>
+      isNumber ? String(t.teamNumber).startsWith(q) : t.nickname.toLowerCase().includes(q),
+    );
+    // Exact number match first
+    return isNumber
+      ? [...list].sort((a, b) => Number(String(b.teamNumber) === q) - Number(String(a.teamNumber) === q))
+      : list;
+  }, [teams, q]);
+
+  function isAvailable(n: number) {
+    return n === value || !takenBy.has(n);
+  }
+
+  function submit() {
+    const exact = matches.find((t) => String(t.teamNumber) === q);
+    if (exact && isAvailable(exact.teamNumber)) return onPick(exact.teamNumber);
+    const available = matches.filter((t) => isAvailable(t.teamNumber));
+    if (available.length === 1) onPick(available[0].teamNumber);
+  }
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-3 pt-6 sm:pt-16" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl flex flex-col max-h-[70vh]"
+        onClick={(e) => e.stopPropagation()}
       >
-        <option value="">{placeholder}</option>
-        {available.map((t) => (
-          <option key={t.teamNumber} value={t.teamNumber}>
-            {t.teamNumber} — {t.nickname}
-          </option>
-        ))}
-      </select>
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <h2 className="font-semibold text-slate-100 text-sm">{title}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 px-2 py-1" aria-label="Close">
+            ✕
+          </button>
+        </div>
+        <form
+          className="px-4 pb-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+        >
+          <input
+            autoFocus
+            inputMode="numeric"
+            enterKeyHint="done"
+            autoComplete="off"
+            placeholder="Team number"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-lg text-slate-100 focus:outline-none focus:border-blue-500"
+          />
+          {value !== null && (
+            <button
+              type="button"
+              onClick={() => onPick(null)}
+              className="shrink-0 px-3 rounded-lg border border-red-800 text-red-300 text-sm hover:bg-red-900/30"
+            >
+              Clear
+            </button>
+          )}
+        </form>
+        <div className="overflow-y-auto border-t border-slate-800">
+          {matches.length === 0 ? (
+            <p className="p-4 text-sm text-slate-500 text-center">No team matches “{query}”.</p>
+          ) : (
+            matches.map((t) => {
+              const available = isAvailable(t.teamNumber);
+              const isCurrent = t.teamNumber === value;
+              return (
+                <button
+                  key={t.teamNumber}
+                  type="button"
+                  disabled={!available}
+                  onClick={() => onPick(t.teamNumber)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-800/60 transition-colors ${
+                    available ? "hover:bg-slate-800 active:bg-slate-700" : "opacity-40"
+                  } ${isCurrent ? "bg-blue-950/50" : ""}`}
+                >
+                  <span className="w-14 font-semibold text-slate-100">{t.teamNumber}</span>
+                  <span className="flex-1 min-w-0 truncate text-sm text-slate-400">{t.nickname}</span>
+                  {!available && <span className="text-xs text-slate-500 shrink-0">{takenBy.get(t.teamNumber)}</span>}
+                  {isCurrent && <span className="text-xs text-blue-300 shrink-0">current</span>}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -137,6 +250,7 @@ export default function AllianceBuilderPage() {
   const [predictionLoaded, setPredictionLoaded] = useState(false);
   const [actual, setActual] = useState<AllianceSlot[]>(EMPTY_BOARD);
   const [actualError, setActualError] = useState<string | null>(null);
+  const [pickerFor, setPickerFor] = useState<{ alliance: number; slot: SlotKey } | null>(null);
 
   function setMode(m: Mode) {
     setModeState(m);
@@ -177,6 +291,11 @@ export default function AllianceBuilderPage() {
   const sortedTeams = useMemo(
     () => (teams ? [...teams].sort((a, b) => a.teamNumber - b.teamNumber) : []),
     [teams],
+  );
+
+  const teamNickname = useMemo(
+    () => new Map(sortedTeams.map((t) => [t.teamNumber, t.nickname])),
+    [sortedTeams],
   );
 
   const statsMap = useMemo(
@@ -225,7 +344,13 @@ export default function AllianceBuilderPage() {
     clearActual({ eventKey: event.eventKey }).catch(() => {});
   }
 
-  const allPicked = slotTeams(board);
+  const takenBy = new Map<number, string>();
+  board.forEach((a, i) => {
+    for (const k of ["captain", "pick1", "pick2"] as const) {
+      const n = a[k];
+      if (n !== null) takenBy.set(n, `A${i + 1} ${SLOT_LABEL[k]}`);
+    }
+  });
 
   if (!event)
     return <div className="p-6 text-center text-slate-400">No active event.</div>;
@@ -316,12 +441,10 @@ export default function AllianceBuilderPage() {
                         {si === 0 ? "Captain" : `Pick ${si}`}
                       </p>
                       {canEdit ? (
-                        <TeamDropdown
+                        <SlotButton
                           value={alliance[slot]}
-                          onChange={(v) => updateSlot(i, slot, v)}
-                          teams={sortedTeams}
-                          pickedElsewhere={allPicked}
-                          placeholder="—"
+                          nickname={alliance[slot] ? teamNickname.get(alliance[slot]!) : undefined}
+                          onClick={() => setPickerFor({ alliance: i, slot })}
                         />
                       ) : (
                         <div className="min-h-[2.75rem] flex flex-col justify-center">
@@ -342,6 +465,20 @@ export default function AllianceBuilderPage() {
             );
           })}
         </div>
+      )}
+
+      {pickerFor && canEdit && (
+        <TeamPicker
+          title={`Alliance ${pickerFor.alliance + 1} · ${SLOT_LABEL[pickerFor.slot]}`}
+          value={board[pickerFor.alliance][pickerFor.slot]}
+          teams={sortedTeams}
+          takenBy={takenBy}
+          onPick={(team) => {
+            updateSlot(pickerFor.alliance, pickerFor.slot, team);
+            setPickerFor(null);
+          }}
+          onClose={() => setPickerFor(null)}
+        />
       )}
     </div>
   );
