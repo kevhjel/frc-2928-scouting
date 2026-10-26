@@ -5,6 +5,7 @@ import { useActiveEvent } from "../hooks/useActiveEvent";
 import { useActiveScoutingConfig } from "../hooks/useScoutingConfig";
 import Spinner from "../components/ui/Spinner";
 import Button from "../components/ui/Button";
+import { teamMatchScore } from "../lib/teamSearch";
 
 type AllianceSlot = { captain: number | null; pick1: number | null; pick2: number | null };
 
@@ -81,14 +82,12 @@ function TeamPicker({
 
   const matches = useMemo(() => {
     if (!q) return teams;
-    const isNumber = /^\d+$/.test(q);
-    const list = teams.filter((t) =>
-      isNumber ? String(t.teamNumber).startsWith(q) : t.nickname.toLowerCase().includes(q),
-    );
-    // Exact number match first
-    return isNumber
-      ? [...list].sort((a, b) => Number(String(b.teamNumber) === q) - Number(String(a.teamNumber) === q))
-      : list;
+    // Exact number first, then numbers starting with it, then name matches
+    return teams
+      .map((t) => ({ t, score: teamMatchScore(t.teamNumber, t.nickname, q) }))
+      .filter((m) => m.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((m) => m.t);
   }, [teams, q]);
 
   function isAvailable(n: number) {
@@ -131,10 +130,12 @@ function TeamPicker({
         >
           <input
             autoFocus
-            inputMode="numeric"
             enterKeyHint="done"
             autoComplete="off"
-            placeholder="Team number"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="Team number or name"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-lg text-slate-100 focus:outline-none focus:border-blue-500"

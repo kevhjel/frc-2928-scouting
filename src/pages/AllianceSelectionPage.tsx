@@ -17,6 +17,7 @@ import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Spinner from "../components/ui/Spinner";
 import Modal from "../components/ui/Modal";
+import { teamMatchScore } from "../lib/teamSearch";
 import PickListTabs from "../components/picklist/PickListTabs";
 import {
   TeamData,
@@ -225,6 +226,11 @@ export default function AllianceSelectionPage() {
     return map;
   }, [board?.actualBoard]);
 
+  const nicknameByTeam = useMemo(
+    () => new Map((teamsList ?? []).map((t) => [t.teamNumber, t.nickname])),
+    [teamsList],
+  );
+
   const pickedSet = useMemo(() => new Set(localPicked), [localPicked]);
   const available = fullOrder.filter((n) => !pickedSet.has(n));
   // Picked section lists teams in the order they were taken
@@ -232,16 +238,19 @@ export default function AllianceSelectionPage() {
 
   // Quick find by team number. Rank numbers keep the true position.
   const findQ = find.trim();
-  const matchesFind = (n: number) => !findQ || String(n).startsWith(findQ);
+  const matchesFind = (n: number) => teamMatchScore(n, nicknameByTeam.get(n), findQ) > 0;
   const shownAvailable = available.filter(matchesFind);
   const shownPicked = pickedInOrder.filter(matchesFind);
 
   function submitFind() {
     // Enter on an exact team number marks it picked
     if (!canEdit) return;
-    const n = Number(findQ);
-    if (findQ && available.includes(n)) {
-      togglePicked(n);
+    // Exact team number wins; otherwise a search that narrows to one team
+    if (!findQ) return;
+    const exact = available.find((n) => String(n) === findQ);
+    const target = exact ?? (shownAvailable.length === 1 ? shownAvailable[0] : undefined);
+    if (target !== undefined) {
+      togglePicked(target);
       setFind("");
     }
   }
@@ -332,12 +341,14 @@ export default function AllianceSelectionPage() {
           }}
         >
           <input
-            inputMode="numeric"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
             enterKeyHint={canEdit ? "done" : "search"}
             autoComplete="off"
-            placeholder={canEdit ? "Find team # (Enter marks picked)" : "Find team #"}
+            placeholder={canEdit ? "Find team # or name (Enter marks picked)" : "Find team # or name"}
             value={find}
-            onChange={(e) => setFind(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => setFind(e.target.value)}
             className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-base text-slate-100 focus:outline-none focus:border-blue-500"
           />
           {findQ && (
