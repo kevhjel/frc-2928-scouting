@@ -192,7 +192,7 @@ const guides: { matchPrefix: string; guide: PageGuide }[] = [
             "An admin taps Start alliance selection to load the Team List order.",
             "As teams get chosen on the field, admins tap Picked. The team drops into the Picked section and the rest renumber. Tap Undo if it was a mistake.",
             "Once you know your partners, admins drag teams to reorder who you want next. Picked teams aren't affected.",
-            "Type a number in Find team # to jump to that team. Admins can press Enter on an exact number to mark it picked.",
+            "Type a team number or part of a name in the Find box to filter the list. Admins can press Enter to mark a team picked when the search matches an exact number or just one team.",
             "Tap ⇄ on two teams, then Compare to see them side by side.",
             "Reload pulls the Team List order back in. You can keep the picks or start over.",
             "Teams an admin enters on Alliances → Actual are picked automatically and show which alliance they joined. To undo one, remove it on the Alliances tab.",
@@ -227,7 +227,7 @@ const guides: { matchPrefix: string; guide: PageGuide }[] = [
         {
           heading: "Using the board",
           items: [
-            "Each alliance has a Captain, Pick 1 and Pick 2. Tap a slot, type the team number, and tap the match (or press Enter on an exact number).",
+            "Each alliance has a Captain, Pick 1 and Pick 2. Tap a slot, type a team number or name, and tap the match. Enter picks an exact number or the only match.",
             "Teams already on the board are greyed out and show where they are.",
             "Each alliance's combined OPR, EPA and estimated balls (~Balls) update as you fill it in.",
             "Clear empties the board you're looking at. On Actual, those teams are un-picked too.",
